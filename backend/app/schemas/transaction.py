@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import uuid
+from datetime import date, datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+
+# ---------------------------------------------------------------------------
+# Enums / Literals
+# ---------------------------------------------------------------------------
+
+TransactionType = Literal["INCOME", "EXPENSE"]
+
+PaymentMethod = Literal["UPI", "CARD", "WALLET", "SUBSCRIPTION", "CASH"]
+
+CategoryType = Literal[
+    "FOOD", "TRAVEL", "MISCELLANEOUS", "SUBSCRIPTION", "SALARY",
+    "RENT", "BILLS", "SERVICE", "PAYROLL"
+]
+
+
+# ---------------------------------------------------------------------------
+# Create
+# ---------------------------------------------------------------------------
+
+
+class TransactionCreate(BaseModel):
+    """Payload for POST /api/v1/transactions."""
+
+    account_id: Optional[uuid.UUID] = None
+    amount: float = Field(..., gt=0, description="Positive amount in INR")
+    type: TransactionType
+    payment_method: PaymentMethod
+    description: str = Field(default="", max_length=512)
+    raw_merchant_name: Optional[str] = Field(default=None, max_length=255)
+    category: str = Field(default="MISCELLANEOUS", max_length=100)
+    subcategory: Optional[str] = Field(default=None, max_length=100)
+    transaction_date: date
+    is_pending: bool = False
+    provider_transaction_id: Optional[str] = Field(
+        default=None, max_length=255
+    )
+
+    @field_validator("category")
+    @classmethod
+    def category_uppercase(cls, v: str) -> str:
+        return v.upper().strip()
+
+    @field_validator("subcategory")
+    @classmethod
+    def subcategory_uppercase(cls, v: str | None) -> str | None:
+        if v is not None:
+            return v.upper().strip()
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Update
+# ---------------------------------------------------------------------------
+
+
+class TransactionUpdate(BaseModel):
+    """Payload for PUT /api/v1/transactions/{id}. All fields optional."""
+
+    amount: Optional[float] = Field(default=None, gt=0)
+    type: Optional[TransactionType] = None
+    payment_method: Optional[PaymentMethod] = None
+    description: Optional[str] = Field(default=None, max_length=512)
+    raw_merchant_name: Optional[str] = Field(default=None, max_length=255)
+    category: Optional[str] = Field(default=None, max_length=100)
+    subcategory: Optional[str] = Field(default=None, max_length=100)
+    transaction_date: Optional[date] = None
+    is_pending: Optional[bool] = None
+
+    @field_validator("category")
+    @classmethod
+    def category_uppercase(cls, v: str | None) -> str | None:
+        if v is not None:
+            return v.upper().strip()
+        return v
+
+    @field_validator("subcategory")
+    @classmethod
+    def subcategory_uppercase(cls, v: str | None) -> str | None:
+        if v is not None:
+            return v.upper().strip()
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Read (response)
+# ---------------------------------------------------------------------------
+
+
+class TransactionRead(BaseModel):
+    """Single transaction response."""
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    account_id: Optional[uuid.UUID]  # nullable: manual transactions may have no account
+    provider_transaction_id: Optional[str]
+    amount: float
+    type: str
+    payment_method: str
+    description: str
+    raw_merchant_name: Optional[str]
+    category: str
+    subcategory: Optional[str]
+    ai_suggested_category: Optional[str]
+    transaction_date: date
+    is_pending: bool
+    created_at: datetime
+    deleted_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Paginated list response
+# ---------------------------------------------------------------------------
+
+
+class TransactionListResponse(BaseModel):
+    """Paginated transaction list."""
+
+    items: list[TransactionRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# ---------------------------------------------------------------------------
+# Upload response stub
+# ---------------------------------------------------------------------------
+
+
+class UploadResponse(BaseModel):
+    """Response for POST /api/v1/transactions/upload."""
+
+    filename: str
+    content_type: str
+    size_bytes: int
+    status: str = "received"
+    message: str
+    transactions_parsed: int = 0

@@ -231,6 +231,15 @@ async def create_transaction(
     db.add(transaction)
     await db.flush()
 
+    # Update account balance
+    from app.models.account import Account
+    balance_delta = float(payload.amount) if payload.type == "INCOME" else -float(payload.amount)
+    await db.execute(
+        update(Account)
+        .where(Account.id == str(account_id))
+        .values(balance=Account.balance + balance_delta)
+    )
+
     # Update budget current_spent for this category + month
     await _update_budget_spent(
         user_id=user_id,
@@ -300,6 +309,18 @@ async def soft_delete_transaction(
     """Soft-delete a transaction by setting deleted_at."""
     transaction = await get_transaction(transaction_id, user_id, db)
     transaction.deleted_at = datetime.now(timezone.utc)
+    
+    # Reverse the account balance
+    if transaction.account_id:
+        from app.models.account import Account
+        from sqlalchemy import update
+        reverse_delta = float(transaction.amount) if transaction.type == "EXPENSE" else -float(transaction.amount)
+        await db.execute(
+            update(Account)
+            .where(Account.id == str(transaction.account_id))
+            .values(balance=Account.balance + reverse_delta)
+        )
+
     await db.flush()
 
 

@@ -10,7 +10,7 @@ export default function QuickAddForm() {
     amount: '',
     category: 'FOOD',
     payment_method: 'UPI',
-    transaction_date: new Date(2026, 5, 9).toISOString().split('T')[0],
+    transaction_date: new Date().toISOString().split('T')[0],
     type: 'EXPENSE',
   });
   const [errors, setErrors] = useState({});
@@ -141,7 +141,7 @@ export default function QuickAddForm() {
             value={form.transaction_date}
             onChange={e => set('transaction_date', e.target.value)}
             className={inputClass('transaction_date')}
-            max={new Date(2026, 5, 9).toISOString().split('T')[0]}
+            max={new Date().toISOString().split('T')[0]}
           />
         </div>
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -10,6 +11,8 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.database import create_tables
 from app.routers import auth, transactions, analytics, budgets
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -73,13 +76,13 @@ def create_app() -> FastAPI:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """Catch-all for unhandled exceptions — return JSON instead of HTML."""
+        # Fix 6: Log internally; never expose exception class names to clients
+        logger.exception("Unhandled exception on %s %s", request.method, request.url)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "detail": "An internal server error occurred.",
-                "type": type(exc).__name__,
-            },
+            content={"detail": "An internal server error occurred."},
         )
+
 
     # ------------------------------------------------------------------ #
     # Routers

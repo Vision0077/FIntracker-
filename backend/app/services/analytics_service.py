@@ -171,7 +171,7 @@ async def get_spending_trends(
         )
         .where(
             and_(
-                Transaction.user_id == user_id,
+                Transaction.user_id == str(user_id),
                 Transaction.deleted_at.is_(None),
                 Transaction.transaction_date >= _start,
                 Transaction.transaction_date <= _end,

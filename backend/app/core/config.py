@@ -1,6 +1,11 @@
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from typing import List
 import json
+import warnings
+
+
+_INSECURE_DEFAULT_KEY = "your-super-secret-jwt-key-minimum-32-characters-change-this"
 
 
 class Settings(BaseSettings):
@@ -10,7 +15,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./fintrack.db"
 
     # JWT
-    SECRET_KEY: str = "your-super-secret-jwt-key-minimum-32-characters-change-this"
+    SECRET_KEY: str = _INSECURE_DEFAULT_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_DAYS: int = 7
 
@@ -21,6 +26,22 @@ class Settings(BaseSettings):
     APP_NAME: str = "FinTrack"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
+
+    @model_validator(mode="after")
+    def _validate_secret_key(self) -> "Settings":
+        """Fix 5: Guard against deploying with the insecure default SECRET_KEY."""
+        if self.SECRET_KEY == _INSECURE_DEFAULT_KEY:
+            if not self.DEBUG:
+                raise ValueError(
+                    "SECRET_KEY must be set to a secure random value in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            warnings.warn(
+                "[FinTrack] SECRET_KEY is still the insecure default. "
+                "Set a strong SECRET_KEY in your .env file before deploying.",
+                stacklevel=2,
+            )
+        return self
 
     @property
     def cors_origins_list(self) -> List[str]:

@@ -239,7 +239,7 @@ export function AppProvider({ children }) {
           category: b.category,
           payment_method: b.payment_method || null,
           limit_amount: Number(b.limit_amount),
-          month_year: '2026-06',
+          month_year: (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; })(),
         }
       });
       showNotification('Budget limit added', 'success');

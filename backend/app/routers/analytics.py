@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -73,6 +73,12 @@ async def spending_trends(
     Use `period=custom` with `start_date` and `end_date` for arbitrary ranges.
     Response includes per-day data points suitable for chart components.
     """
+    # Fix 7: Reject custom period without both dates instead of silent fallback
+    if period == "custom" and (start_date is None or end_date is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Both start_date and end_date are required when period=custom.",
+        )
     return await analytics_service.get_spending_trends(
         user_id=current_user.id,
         db=db,
@@ -80,6 +86,7 @@ async def spending_trends(
         start_date=start_date,
         end_date=end_date,
     )
+
 
 
 @router.get(

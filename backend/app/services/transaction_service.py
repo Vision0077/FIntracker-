@@ -283,6 +283,13 @@ async def update_transaction(
     """Update mutable fields of a transaction."""
     transaction = await get_transaction(transaction_id, user_id, db)
 
+    # Snapshot old budget-relevant values BEFORE applying changes
+    old_category = transaction.category
+    old_payment_method = transaction.payment_method
+    old_amount = Decimal(str(transaction.amount))
+    old_type = transaction.type
+    old_month_year = transaction.transaction_date.strftime("%Y-%m")
+
     update_data = payload.model_dump(exclude_unset=True)
 
     # If category / payment_method changes, re-run AI suggestion
@@ -299,6 +306,35 @@ async def update_transaction(
         setattr(transaction, field, value)
 
     await db.flush()
+
+    # Fix 2B: Reconcile budgets if any money/category/type field changed
+    budget_fields = {"amount", "category", "type", "payment_method", "transaction_date"}
+    if budget_fields & set(update_data.keys()):
+        new_type = transaction.type
+        new_month_year = transaction.transaction_date.strftime("%Y-%m")
+
+        # Reverse the OLD budget contribution (if it was an expense)
+        if old_type == "EXPENSE":
+            await _update_budget_spent(
+                user_id=user_id,
+                category=old_category,
+                payment_method=old_payment_method,
+                month_year=old_month_year,
+                delta=-old_amount,
+                db=db,
+            )
+
+        # Apply the NEW budget contribution (if it is now an expense)
+        if new_type == "EXPENSE":
+            await _update_budget_spent(
+                user_id=user_id,
+                category=transaction.category,
+                payment_method=transaction.payment_method,
+                month_year=new_month_year,
+                delta=Decimal(str(transaction.amount)),
+                db=db,
+            )
+
     return transaction
 
 
@@ -322,6 +358,17 @@ async def soft_delete_transaction(
             .values(balance=Account.balance + reverse_delta)
         )
 
+    # Fix 2A: Reverse the budget current_spent for EXPENSE transactions
+    if transaction.type == "EXPENSE":
+        await _update_budget_spent(
+            user_id=user_id,
+            category=transaction.category,
+            payment_method=transaction.payment_method,
+            month_year=transaction.transaction_date.strftime("%Y-%m"),
+            delta=-Decimal(str(transaction.amount)),  # negative = reverse
+            db=db,
+        )
+
     await db.flush()
 
 
@@ -339,15 +386,19 @@ async def _update_budget_spent(
     db: AsyncSession,
 ) -> None:
     """
-    Increment current_spent on matching budgets when an EXPENSE is created.
-    No-op if delta is 0 (i.e. transaction is INCOME).
+    Increment (or decrement when delta < 0) current_spent on matching budgets.
+    No-op if delta is 0 (i.e. transaction is INCOME with no change).
+    Matches budgets scoped to user + category + month_year.
+    If a budget has a specific payment_method, it is only updated when the
+    transaction's payment_method matches — preventing cross-budget contamination.
     """
-    if delta <= 0:
+    if delta == 0:
         return
 
     from app.models.budget import Budget
 
-    # Match budgets for this user/category/month (payment_method optional)
+    # Fix 2C: Update budgets that either have no payment_method filter
+    # OR whose payment_method exactly matches the transaction's payment_method.
     await db.execute(
         update(Budget)
         .where(
@@ -355,6 +406,8 @@ async def _update_budget_spent(
                 Budget.user_id == str(user_id),
                 Budget.category == category,
                 Budget.month_year == month_year,
+                # Only touch budgets with matching or unset payment_method
+                (Budget.payment_method == payment_method) | (Budget.payment_method.is_(None)),
             )
         )
         .values(current_spent=Budget.current_spent + delta)

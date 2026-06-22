@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import uuid
+from decimal import Decimal
 from datetime import date, datetime, timezone
 from typing import Optional
 
@@ -233,7 +234,7 @@ async def create_transaction(
 
     # Update account balance
     from app.models.account import Account
-    balance_delta = float(payload.amount) if payload.type == "INCOME" else -float(payload.amount)
+    balance_delta = Decimal(str(payload.amount)) if payload.type == "INCOME" else -Decimal(str(payload.amount))
     await db.execute(
         update(Account)
         .where(Account.id == str(account_id))
@@ -246,7 +247,7 @@ async def create_transaction(
         category=payload.category,
         payment_method=payload.payment_method,
         month_year=payload.transaction_date.strftime("%Y-%m"),
-        delta=float(payload.amount) if payload.type == "EXPENSE" else 0.0,
+        delta=Decimal(str(payload.amount)) if payload.type == "EXPENSE" else Decimal("0.0"),
         db=db,
     )
 
@@ -314,7 +315,7 @@ async def soft_delete_transaction(
     if transaction.account_id:
         from app.models.account import Account
         from sqlalchemy import update
-        reverse_delta = float(transaction.amount) if transaction.type == "EXPENSE" else -float(transaction.amount)
+        reverse_delta = Decimal(str(transaction.amount)) if transaction.type == "EXPENSE" else -Decimal(str(transaction.amount))
         await db.execute(
             update(Account)
             .where(Account.id == str(transaction.account_id))
@@ -334,7 +335,7 @@ async def _update_budget_spent(
     category: str,
     payment_method: str,
     month_year: str,
-    delta: float,
+    delta: Decimal,
     db: AsyncSession,
 ) -> None:
     """

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../utils/api';
 
 const AppContext = createContext(null);
@@ -62,9 +62,11 @@ export function AppProvider({ children }) {
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
+  const notifTimer = useRef(null);
   const showNotification = (message, type = 'success') => {
+    clearTimeout(notifTimer.current);
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    notifTimer.current = setTimeout(() => setNotification(null), 3000);
   };
 
   const logout = () => {
@@ -85,93 +87,74 @@ export function AppProvider({ children }) {
 
   const refreshData = async (authToken) => {
     if (!authToken) return;
-    try {
-      // 1. Dashboard summary (critical)
-      const summary = await apiFetch('/analytics/dashboard-summary', { token: authToken });
-      setTotalBalance(summary.total_balance);
-      setMonthlyIncome(summary.monthly_income);
-      setMonthlyExpenses(summary.monthly_expenses);
-    } catch (err) {
-      console.warn('Dashboard summary failed:', err);
-    }
 
-    try {
-      // 2. Month-over-month comparison (non-critical)
-      const now = new Date();
-      const curStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-      const curEnd = now.toISOString().split('T')[0];
-      const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-01`;
-      const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
-      const comp = await apiFetch(
-        `/analytics/comparison?period_type=monthly&current_start=${curStart}&current_end=${curEnd}&previous_start=${prevStart}&previous_end=${prevEnd}`,
-        { token: authToken }
-      );
-      setLastMonthIncome(comp.previous.total_income);
-      setLastMonthExpenses(comp.previous.total_expenses);
-    } catch (err) {
-      console.warn('Comparison fetch failed (non-critical):', err);
-    }
+    const now = new Date();
+    const curStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const curEnd = now.toISOString().split('T')[0];
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-01`;
+    const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    const monthYear = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
-    try {
-      // 3. Spending trends (non-critical)
-      const trends = await apiFetch('/analytics/spending-trends?period=monthly', { token: authToken });
-      const trendPoints = (trends.data || []).map(p => ({
+    // ponytail: fire all 7 requests in parallel — was 7 serial round-trips
+    const [summaryRes, compRes, trendsRes, catRes, payRes, txRes, budRes] = await Promise.allSettled([
+      apiFetch('/analytics/dashboard-summary', { token: authToken }),
+      apiFetch(`/analytics/comparison?period_type=monthly&current_start=${curStart}&current_end=${curEnd}&previous_start=${prevStart}&previous_end=${prevEnd}`, { token: authToken }),
+      apiFetch('/analytics/spending-trends?period=monthly', { token: authToken }),
+      apiFetch('/analytics/category-breakdown', { token: authToken }),
+      apiFetch('/analytics/payment-method-breakdown', { token: authToken }),
+      apiFetch('/transactions?page=1&page_size=100', { token: authToken }),
+      apiFetch(`/budgets?month_year=${monthYear}`, { token: authToken }),
+    ]);
+
+    if (summaryRes.status === 'fulfilled') {
+      const s = summaryRes.value;
+      setTotalBalance(s.total_balance);
+      setMonthlyIncome(s.monthly_income);
+      setMonthlyExpenses(s.monthly_expenses);
+    } else console.warn('Dashboard summary failed:', summaryRes.reason);
+
+    if (compRes.status === 'fulfilled') {
+      setLastMonthIncome(compRes.value.previous.total_income);
+      setLastMonthExpenses(compRes.value.previous.total_expenses);
+    } else console.warn('Comparison fetch failed:', compRes.reason);
+
+    if (trendsRes.status === 'fulfilled') {
+      setSpendingTrends((trendsRes.value.data || []).map(p => ({
         date: new Date(p.label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         fullDate: p.label,
         income: p.income,
-        expense: p.expenses
-      }));
-      setSpendingTrends(trendPoints);
-    } catch (err) {
-      console.warn('Spending trends failed (non-critical):', err);
-    }
+        expense: p.expenses,
+      })));
+    } else console.warn('Spending trends failed:', trendsRes.reason);
 
-    try {
-      // 4. Category breakdown (non-critical)
-      const catBreak = await apiFetch('/analytics/category-breakdown', { token: authToken });
-      const categoriesList = (catBreak.items || []).map(item => ({
+    if (catRes.status === 'fulfilled') {
+      setCategoryBreakdownPct((catRes.value.items || []).map(item => ({
         category: item.category,
         amount: item.total_amount,
         percentage: item.percentage.toFixed(1),
-        color: CATEGORY_COLORS[item.category] || '#6366f1'
-      }));
-      setCategoryBreakdownPct(categoriesList);
-    } catch (err) {
-      console.warn('Category breakdown failed (non-critical):', err);
-    }
+        color: CATEGORY_COLORS[item.category] || '#6366f1',
+      })));
+    } else console.warn('Category breakdown failed:', catRes.reason);
 
-    try {
-      // 5. Payment breakdown (non-critical)
-      const payBreak = await apiFetch('/analytics/payment-method-breakdown', { token: authToken });
-      const paymentsList = (payBreak.items || []).map(item => ({
+    if (payRes.status === 'fulfilled') {
+      setPaymentBreakdown((payRes.value.items || []).map(item => ({
         method: item.payment_method,
         amount: item.total_amount,
-        color: PAYMENT_COLORS[item.payment_method] || '#6366f1'
-      }));
-      setPaymentBreakdown(paymentsList);
-    } catch (err) {
-      console.warn('Payment breakdown failed (non-critical):', err);
+        color: PAYMENT_COLORS[item.payment_method] || '#6366f1',
+      })));
+    } else console.warn('Payment breakdown failed:', payRes.reason);
+
+    if (txRes.status === 'fulfilled') {
+      setTransactions(txRes.value.items || []);
+    } else {
+      console.warn('Transactions fetch failed:', txRes.reason);
+      if (txRes.reason?.status === 401) logout();
     }
 
-    try {
-      // 6. Transactions list (critical)
-      const txRes = await apiFetch('/transactions?page=1&page_size=100', { token: authToken });
-      setTransactions(txRes.items || []);
-    } catch (err) {
-      console.warn('Transactions fetch failed:', err);
-      if (err.status === 401) logout();
-    }
-
-    try {
-      // 7. Budgets (non-critical)
-      const now = new Date();
-      const monthYear = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      const budRes = await apiFetch(`/budgets?month_year=${monthYear}`, { token: authToken });
-      setBudgets(budRes.items || []);
-    } catch (err) {
-      console.warn('Budgets fetch failed (non-critical):', err);
-    }
+    if (budRes.status === 'fulfilled') {
+      setBudgets(budRes.value.items || []);
+    } else console.warn('Budgets fetch failed:', budRes.reason);
   };
 
   useEffect(() => {

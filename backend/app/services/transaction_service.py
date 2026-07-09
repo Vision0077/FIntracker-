@@ -10,6 +10,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.account import Account
+from app.models.budget import Budget
 from app.models.transaction import Transaction
 from app.schemas.transaction import (
     TransactionCreate,
@@ -25,7 +27,7 @@ from app.schemas.transaction import (
 # ---------------------------------------------------------------------------
 
 
-async def ai_suggest_category(
+def ai_suggest_category(
     description: str,
     amount: float,
     payment_method: str,
@@ -48,7 +50,7 @@ async def ai_suggest_category(
     - Inflation-aware: gradually increasing amounts in same category → normal
     - Only flag sudden spikes or new categories as concerns
     """
-    # Placeholder heuristics until ML model is integrated
+    # ponytail: heuristic stub; ceiling = keyword-match O(n*k). Upgrade path: sklearn/TF model.
     desc_lower = description.lower()
     if any(
         word in desc_lower
@@ -80,13 +82,12 @@ async def ai_suggest_category(
         ]
     ):
         return "SUBSCRIPTION"
-    elif any(
-        word in desc_lower
-        for word in ["salary", "payroll", "stipend", "income"]
-    ):
+    elif any(word in desc_lower for word in ["salary", "payroll", "stipend", "income"]):
         return "SALARY"
-    elif any(word in desc_lower for word in ["rent", "emi", "loan"]):
-        return "MISCELLANEOUS"
+    elif any(word in desc_lower for word in ["rent"]):
+        return "RENT"
+    elif any(word in desc_lower for word in ["emi", "loan"]):
+        return "BILLS"
     else:
         return "MISCELLANEOUS"
 
@@ -183,7 +184,6 @@ async def create_transaction(
     # Resolve default account for this payment method if none provided
     account_id = payload.account_id
     if not account_id:
-        from app.models.account import Account
         stmt = select(Account).where(
             and_(
                 Account.user_id == str(user_id),
@@ -207,7 +207,7 @@ async def create_transaction(
         account_id = uuid.UUID(account.id) if isinstance(account.id, str) else account.id
 
     # Run AI suggestion
-    ai_category = await ai_suggest_category(
+    ai_category = ai_suggest_category(
         description=payload.description,
         amount=payload.amount,
         payment_method=payload.payment_method,
@@ -233,8 +233,8 @@ async def create_transaction(
     await db.flush()
 
     # Update account balance
-    from app.models.account import Account
-    balance_delta = Decimal(str(payload.amount)) if payload.type == "INCOME" else -Decimal(str(payload.amount))
+    amount_decimal = Decimal(str(payload.amount))
+    balance_delta = amount_decimal if payload.type == "INCOME" else -amount_decimal
     await db.execute(
         update(Account)
         .where(Account.id == str(account_id))
@@ -298,7 +298,7 @@ async def update_transaction(
     pm = update_data.get("payment_method", transaction.payment_method)
 
     if any(k in update_data for k in ("description", "amount", "payment_method")):
-        update_data["ai_suggested_category"] = await ai_suggest_category(
+        update_data["ai_suggested_category"] = ai_suggest_category(
             description=desc, amount=amount, payment_method=pm
         )
 
@@ -349,8 +349,6 @@ async def soft_delete_transaction(
     
     # Reverse the account balance
     if transaction.account_id:
-        from app.models.account import Account
-        from sqlalchemy import update
         reverse_delta = Decimal(str(transaction.amount)) if transaction.type == "EXPENSE" else -Decimal(str(transaction.amount))
         await db.execute(
             update(Account)
@@ -394,8 +392,6 @@ async def _update_budget_spent(
     """
     if delta == 0:
         return
-
-    from app.models.budget import Budget
 
     # Fix 2C: Update budgets that either have no payment_method filter
     # OR whose payment_method exactly matches the transaction's payment_method.

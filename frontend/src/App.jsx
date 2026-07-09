@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from './context/AppContext';
 import AuthPage from './components/AuthPage';
 import Sidebar from './components/Sidebar';
@@ -38,18 +38,22 @@ export default function App() {
     );
   }
 
-  const PAGE_MAP = {
-    dashboard: <Dashboard />,
-    transactions: <TransactionsPage />,
-    analytics: <AnalyticsPage />,
-    settings: <SettingsPage />,
-  };
+  // ponytail: was re-creating all 4 JSX components on every render
+  const page = useMemo(() => {
+    const map = {
+      dashboard: <Dashboard />,
+      transactions: <TransactionsPage />,
+      analytics: <AnalyticsPage />,
+      settings: <SettingsPage />,
+    };
+    return map[activePage] || <Dashboard />;
+  }, [activePage]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d0d1f]">
       <Sidebar />
       <main className="flex-1 lg:ml-60 pb-20 lg:pb-0">
-        {PAGE_MAP[activePage] || <Dashboard />}
+        {page}
       </main>
       <MobileNav />
       <Toast />

@@ -32,16 +32,16 @@ class User(Base):
 
     # Relationships
     bank_items: Mapped[list["BankItem"]] = relationship(
-        "BankItem", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+        "BankItem", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
     accounts: Mapped[list["Account"]] = relationship(
-        "Account", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+        "Account", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
     transactions: Mapped[list["Transaction"]] = relationship(
-        "Transaction", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+        "Transaction", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
     budgets: Mapped[list["Budget"]] = relationship(
-        "Budget", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+        "Budget", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
 
     def __repr__(self) -> str:

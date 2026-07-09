@@ -41,25 +41,24 @@ def _to_float(value) -> float:
     return float(value)
 
 
-def _active_expenses(user_id: uuid.UUID, start: date, end: date):
-    """Base filter for active expense transactions in a date range."""
+def _active_filter(user_id: uuid.UUID, start: date, end: date, type_: str):
+    """Base filter for active transactions of a given type in a date range."""
     return and_(
         Transaction.user_id == str(user_id),
-        Transaction.type == "EXPENSE",
+        Transaction.type == type_,
         Transaction.deleted_at.is_(None),
         Transaction.transaction_date >= start,
         Transaction.transaction_date <= end,
     )
+
+
+# ponytail: aliases kept for call-site clarity
+def _active_expenses(user_id: uuid.UUID, start: date, end: date):
+    return _active_filter(user_id, start, end, "EXPENSE")
 
 
 def _active_income(user_id: uuid.UUID, start: date, end: date):
-    return and_(
-        Transaction.user_id == str(user_id),
-        Transaction.type == "INCOME",
-        Transaction.deleted_at.is_(None),
-        Transaction.transaction_date >= start,
-        Transaction.transaction_date <= end,
-    )
+    return _active_filter(user_id, start, end, "INCOME")
 
 
 # ---------------------------------------------------------------------------
@@ -83,21 +82,23 @@ async def get_dashboard_summary(
     )
     total_balance = _to_float(balance_result.scalar_one_or_none())
 
-    # Monthly income
-    income_result = await db.execute(
-        select(func.sum(Transaction.amount)).where(
-            _active_income(user_id, month_start, today)
+    # Monthly income + expenses in one conditional-aggregate query (2 round-trips saved)
+    agg_result = await db.execute(
+        select(
+            func.sum(case((Transaction.type == "INCOME", Transaction.amount), else_=0)).label("income"),
+            func.sum(case((Transaction.type == "EXPENSE", Transaction.amount), else_=0)).label("expenses"),
+        ).where(
+            and_(
+                Transaction.user_id == str(user_id),
+                Transaction.deleted_at.is_(None),
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= today,
+            )
         )
     )
-    monthly_income = _to_float(income_result.scalar_one_or_none())
-
-    # Monthly expenses
-    expense_result = await db.execute(
-        select(func.sum(Transaction.amount)).where(
-            _active_expenses(user_id, month_start, today)
-        )
-    )
-    monthly_expenses = _to_float(expense_result.scalar_one_or_none())
+    agg = agg_result.one()
+    monthly_income = _to_float(agg.income)
+    monthly_expenses = _to_float(agg.expenses)
 
     # Top spending category this month
     top_cat_result = await db.execute(
@@ -337,22 +338,13 @@ async def _compute_period_summary(
     db: AsyncSession,
 ) -> PeriodSummary:
     """Compute income, expenses, and top category for a given date range."""
-    income_result = await db.execute(
-        select(func.sum(Transaction.amount)).where(
-            _active_income(user_id, start, end)
-        )
-    )
-    total_income = _to_float(income_result.scalar_one_or_none())
-
-    expense_result = await db.execute(
-        select(func.sum(Transaction.amount)).where(
-            _active_expenses(user_id, start, end)
-        )
-    )
-    total_expenses = _to_float(expense_result.scalar_one_or_none())
-
-    count_result = await db.execute(
-        select(func.count(Transaction.id)).where(
+    # ponytail: 4 queries → 2 via conditional aggregation
+    agg_result = await db.execute(
+        select(
+            func.sum(case((Transaction.type == "INCOME", Transaction.amount), else_=0)).label("income"),
+            func.sum(case((Transaction.type == "EXPENSE", Transaction.amount), else_=0)).label("expenses"),
+            func.count(Transaction.id).label("txn_count"),
+        ).where(
             and_(
                 Transaction.user_id == str(user_id),
                 Transaction.deleted_at.is_(None),
@@ -361,7 +353,10 @@ async def _compute_period_summary(
             )
         )
     )
-    txn_count = count_result.scalar_one() or 0
+    agg = agg_result.one()
+    total_income = _to_float(agg.income)
+    total_expenses = _to_float(agg.expenses)
+    txn_count = agg.txn_count or 0
 
     top_cat_result = await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("total"))

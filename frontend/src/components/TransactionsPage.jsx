@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
 import { apiUpload } from '../utils/api';
@@ -115,7 +115,8 @@ export default function TransactionsPage() {
   const [uploadModal, setUploadModal] = useState(false);
   const pageSize = 15;
 
-  const filtered = transactions
+  // ponytail: was recalculated on every render; memoize on exact deps
+  const filtered = useMemo(() => transactions
     .filter(t => {
       if (search && !t.description.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterCategory !== 'ALL' && t.category !== filterCategory) return false;
@@ -124,12 +125,13 @@ export default function TransactionsPage() {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'date_desc') return new Date(b.created_at) - new Date(a.created_at);
-      if (sortBy === 'date_asc') return new Date(a.created_at) - new Date(b.created_at);
+      if (sortBy === 'date_desc') return new Date(b.transaction_date) - new Date(a.transaction_date);
+      if (sortBy === 'date_asc') return new Date(a.transaction_date) - new Date(b.transaction_date);
       if (sortBy === 'amount_desc') return b.amount - a.amount;
       if (sortBy === 'amount_asc') return a.amount - b.amount;
       return 0;
-    });
+    }),
+  [transactions, search, filterCategory, filterMethod, filterType, sortBy]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);

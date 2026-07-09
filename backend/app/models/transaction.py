@@ -74,6 +74,8 @@ class Transaction(Base):
         # Note: PostgreSQL partial index (WHERE deleted_at IS NULL) defined in schema.sql
         # SQLite uses a standard compound index as fallback
         Index("ix_transactions_user_date", "user_id", "transaction_date"),
+        # Covers the ubiquitous (user_id, deleted_at IS NULL, transaction_date) filter
+        Index("ix_transactions_user_active_date", "user_id", "deleted_at", "transaction_date"),
     )
 
     # Relationships

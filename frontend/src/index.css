@@ -9,15 +9,28 @@
 
   body {
     font-family: 'Inter', sans-serif;
+    line-height: 1.625; /* relaxed — improves body text readability */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
+  /* ponytail: strict type scale — one place controls all heading sizes */
   h1,
   h2,
   h3,
   h4,
   h5 {
     font-family: 'Outfit', sans-serif;
+    line-height: 1.25; /* tight — headings need less breathing room */
   }
+
+  h1 { font-size: 1.75rem; font-weight: 800; }  /* 28px — page titles */
+  h2 { font-size: 1.375rem; font-weight: 700; }  /* 22px — section headers */
+  h3 { font-size: 1rem; font-weight: 600; }       /* 16px — card headers */
+  h4 { font-size: 0.875rem; font-weight: 600; }   /* 14px — sub-sections */
+  h5 { font-size: 0.875rem; font-weight: 500; }   /* 14px — minor labels */
+
+  small, .text-xs { line-height: 1.5; }
 }
 
 @layer utilities {

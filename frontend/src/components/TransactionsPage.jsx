@@ -48,7 +48,7 @@ function UploadModal({ onClose }) {
     >
       <div className="modal-content w-full max-w-md rounded-2xl p-6 bg-white dark:bg-[#13132b] shadow-2xl border border-slate-100 dark:border-[#1e1e3a]">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold font-display text-slate-800 dark:text-white text-lg">📄 Import Bank Statement</h3>
+          <h3 className="font-bold font-display text-slate-800 dark:text-white">📄 Import Bank Statement</h3>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1e1e3a] text-slate-500 transition-colors text-xl">×</button>
         </div>
 
@@ -155,7 +155,7 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold font-display text-slate-800 dark:text-white">All Transactions</h2>
+          <h2 className="font-display text-slate-800 dark:text-white">All Transactions</h2>
           <p className="text-sm text-slate-400 mt-0.5">{filtered.length} transactions found</p>
         </div>
         <button

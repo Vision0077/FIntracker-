@@ -76,7 +76,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-2xl">
-      <h2 className="text-xl font-bold font-display text-slate-800 dark:text-white">Settings</h2>
+      <h2 className="font-display text-slate-800 dark:text-white">Settings</h2>
 
       {/* Profile */}
       <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.4s ease-out both' }}>
@@ -126,7 +126,7 @@ export default function SettingsPage() {
 
       {/* Budget Limits */}
       <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.4s ease-out 0.1s both' }}>
-        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Target size={16} /> Budget Limits — June 2026</h3>
+        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Target size={16} /> Budget Limits — {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</h3>
         <div className="space-y-3 mb-4">
           {budgets.map(b => {
             const pct = b.limit_amount > 0 ? Math.min(100, (b.current_spent / b.limit_amount) * 100) : 0;

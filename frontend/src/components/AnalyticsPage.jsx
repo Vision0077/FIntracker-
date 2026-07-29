@@ -23,8 +23,11 @@ const CustomTooltip = ({ active, payload }) => {
 export default function AnalyticsPage() {
   const { categoryBreakdownPct, paymentBreakdown, spendingTrends, monthlyIncome, monthlyExpenses, lastMonthIncome, lastMonthExpenses } = useApp();
   const [period, setPeriod] = useState('Monthly');
-  const [customStart, setCustomStart] = useState('2026-05-01');
-  const [customEnd, setCustomEnd] = useState('2026-06-09');
+  // ponytail: was hardcoded to May/June 2026 — now uses current month
+  const [customStart, setCustomStart] = useState(() => {
+    const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`;
+  });
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().split('T')[0]);
 
   const comparisons = [
     { label: 'Income', current: monthlyIncome, previous: lastMonthIncome, color: '#10b981' },
@@ -71,7 +74,7 @@ export default function AnalyticsPage() {
   return (
     <div className="p-4 sm:p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-xl font-bold font-display text-slate-800 dark:text-white">Analytics</h2>
+        <h2 className="font-display text-slate-800 dark:text-white">Analytics</h2>
         <div className="flex items-center gap-2 flex-wrap">
           {PERIODS.map(p => (
             <button
@@ -99,7 +102,7 @@ export default function AnalyticsPage() {
 
       {/* Period Comparison */}
       <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.5s ease-out 0.05s both' }}>
-        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4">📊 Period Comparison — June vs May 2026</h3>
+        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4">📊 Period Comparison — {new Date().toLocaleDateString('en-IN', { month: 'long' })} vs {new Date(new Date().getFullYear(), new Date().getMonth() - 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {comparisons.map(item => <CompareBar key={item.label} item={item} />)}
         </div>
@@ -166,7 +169,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* AI Insights */}
+      {/* AI Insights — ponytail: was hardcoded fake ₹ amounts, now derived from real data */}
       <div className="rounded-2xl p-5 bg-gradient-to-br from-brand-500/10 via-purple-500/5 to-pink-500/10 border border-brand-200/30 dark:border-brand-500/20" style={{ animation: 'fadeUp 0.5s ease-out 0.25s both' }}>
         <div className="flex items-start gap-3">
           <div className="text-2xl">🤖</div>
@@ -174,17 +177,25 @@ export default function AnalyticsPage() {
             <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-1">AI Money Insights</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Patterns detected from your spending behaviour</p>
             <div className="space-y-2">
-              {[
-                { icon: '⚠️', text: 'Food spending is ₹5,240 — 65% of your ₹8,000 budget. Consider meal prepping to reduce delivery costs.' },
-                { icon: '✅', text: 'Rent & subscriptions are stable. These are not flagged as anomalies — regular recurring expenses detected.' },
-                { icon: '💡', text: 'You spent 23% more on Travel this month. Peak cab usage on Fridays — consider sharing rides.' },
-                { icon: '🎯', text: 'Net savings this month: ₹34,000. Great job keeping expenses below income!' },
-              ].map((ins, i) => (
-                <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-white/60 dark:bg-[#13132b]/60 backdrop-blur-sm">
-                  <span className="text-sm mt-0.5">{ins.icon}</span>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{ins.text}</p>
-                </div>
-              ))}
+              {(() => {
+                const insights = [];
+                const topCat = categoryBreakdownPct[0];
+                const netSavings = monthlyIncome - monthlyExpenses;
+                if (topCat) insights.push({ icon: '⚠️', text: `Your top spending category is ${topCat.category} at ${formatCurrency(topCat.amount)} (${topCat.percentage}% of expenses).` });
+                if (monthlyExpenses > 0 && monthlyIncome > 0) {
+                  const ratio = Math.round((monthlyExpenses / monthlyIncome) * 100);
+                  insights.push({ icon: ratio > 80 ? '🔴' : '✅', text: `You're spending ${ratio}% of your income this month. ${ratio > 80 ? 'Consider cutting back.' : 'Good spending discipline!'}` });
+                }
+                if (netSavings !== 0) insights.push({ icon: netSavings >= 0 ? '🎯' : '💡', text: `Net savings this month: ${formatCurrency(Math.abs(netSavings))}. ${netSavings >= 0 ? 'Great job keeping expenses below income!' : 'You\'re spending more than you earn — review your budgets.'}` });
+                if (categoryBreakdownPct.length >= 2) insights.push({ icon: '📊', text: `Your spending is spread across ${categoryBreakdownPct.length} categories. Top two: ${categoryBreakdownPct[0].category} and ${categoryBreakdownPct[1].category}.` });
+                if (insights.length === 0) insights.push({ icon: '💡', text: 'Start adding transactions to see AI-powered spending insights here.' });
+                return insights.map((ins, i) => (
+                  <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-white/60 dark:bg-[#13132b]/60 backdrop-blur-sm">
+                    <span className="text-sm mt-0.5">{ins.icon}</span>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{ins.text}</p>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>

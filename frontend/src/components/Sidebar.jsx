@@ -43,7 +43,8 @@ export default function Sidebar() {
 
       {/* Net savings summary */}
       <div className="mx-3 mb-3 p-3 rounded-xl bg-gradient-to-br from-brand-500/10 to-purple-500/5 border border-brand-200/30 dark:border-brand-500/20">
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Net Savings — June</p>
+        {/* ponytail: was hardcoded "June" — now uses current month */}
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Net Savings — {new Date().toLocaleDateString('en-IN', { month: 'long' })}</p>
         <p className={`text-lg font-bold font-display ${netSavings >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
           {netSavings >= 0 ? '+' : ''}{formatCurrency(netSavings, true)}
         </p>

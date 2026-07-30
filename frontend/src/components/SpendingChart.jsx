@@ -3,6 +3,13 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/helpers';
 
+// ponytail: named constants so chart colors match the design token, not raw hex
+const CHART_COLORS = {
+  income:  '#10b981', /* success / emerald-500 */
+  expense: '#6366f1', /* brand-500             */
+  axis:    '#94a3b8', /* slate-400 muted        */
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -49,24 +56,24 @@ export default function SpendingChart() {
           <AreaChart data={spendingTrends} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
             <defs>
               <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                <stop offset="5%" stopColor={CHART_COLORS.income} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={CHART_COLORS.income} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                <stop offset="5%" stopColor={CHART_COLORS.expense} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={CHART_COLORS.expense} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#94a3b8', fontSize: 10 }}
+              tick={{ fill: CHART_COLORS.axis, fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               interval={4}
             />
             <YAxis
-              tick={{ fill: '#94a3b8', fontSize: 10 }}
+              tick={{ fill: CHART_COLORS.axis, fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={v => formatCurrency(v, true)}
@@ -74,8 +81,8 @@ export default function SpendingChart() {
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" fill="url(#incomeGrad)" strokeWidth={2} dot={false} />
-            <Area type="monotone" dataKey="expense" name="Expense" stroke="#6366f1" fill="url(#expenseGrad)" strokeWidth={2} dot={false} />
+            <Area type="monotone" dataKey="income" name="Income" stroke={CHART_COLORS.income} fill="url(#incomeGrad)" strokeWidth={2} dot={false} />
+            <Area type="monotone" dataKey="expense" name="Expense" stroke={CHART_COLORS.expense} fill="url(#expenseGrad)" strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

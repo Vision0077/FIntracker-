@@ -33,7 +33,20 @@ export default {
           400: '#fb7185',
           500: '#f43f5e',
           600: '#e11d48',
-        }
+        },
+        // ponytail: semantic tokens — use these instead of raw hex in components
+        success:  '#10b981', /* emerald-500 */
+        danger:   '#f43f5e', /* rose-500    */
+        warning:  '#f59e0b', /* amber-500   */
+        info:     '#3b82f6', /* blue-500    */
+        // Dark mode surface palette — named so [#13132b] → surface-card
+        surface: {
+          page:   '#0d0d1f',
+          card:   '#13132b',
+          border: '#1e1e3a',
+          input:  '#16213e',
+          muted:  '#2d2d52',
+        },
       },
       animation: {
         'fade-up': 'fadeUp 0.5s ease-out forwards',

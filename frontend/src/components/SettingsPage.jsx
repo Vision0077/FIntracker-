@@ -23,8 +23,8 @@ function CashForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-slate-500 mb-1">Amount (₹)</label>
           <div className="relative">
@@ -38,7 +38,7 @@ function CashForm() {
         </div>
       </div>
       <input type="text" placeholder="What did you spend on?" value={form.description} onChange={e => set('description', e.target.value)} className="form-input" />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <select value={form.category} onChange={e => set('category', e.target.value)} className="form-input text-xs">
           {CATEGORIES.map(c => <option key={c} value={c}>{getCategoryIcon(c)} {c}</option>)}
         </select>
@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
       {/* Profile */}
       <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.4s ease-out both' }}>
-        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4 flex items-center gap-2"><User size={16} /> Profile</h3>
+        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-3 flex items-center gap-2"><User size={16} /> Profile</h3>
         <div className="flex items-center gap-4 mb-4">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
             {profile.name[0]}
@@ -107,7 +107,7 @@ export default function SettingsPage() {
 
       {/* Appearance */}
       <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.4s ease-out 0.05s both' }}>
-        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Sun size={16} /> Appearance</h3>
+        <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-3 flex items-center gap-2"><Sun size={16} /> Appearance</h3>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Dark Mode</p>
@@ -145,7 +145,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="progress-bar mt-1">
-                  <div className="progress-fill" style={{ width: `${pct}%`, background: isOver ? '#ef4444' : pct > 80 ? '#f59e0b' : '#6366f1' }} />
+                  <div className="progress-fill" style={{ width: `${pct}%`, background: isOver ? 'var(--color-danger)' : pct > 80 ? 'var(--color-warning)' : 'var(--color-brand)' }} />
                 </div>
                 {isOver && <p className="text-xs text-rose-500 mt-1 font-medium">⚠️ Budget exceeded!</p>}
               </div>

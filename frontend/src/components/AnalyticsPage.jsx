@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, getCategoryIcon } from '../utils/helpers';
+import { SkeletonAnalytics, EmptyState } from './Skeletons';
 
 const PERIODS = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Half-yearly', 'Yearly'];
 
@@ -21,7 +22,7 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function AnalyticsPage() {
-  const { categoryBreakdownPct, paymentBreakdown, spendingTrends, monthlyIncome, monthlyExpenses, lastMonthIncome, lastMonthExpenses } = useApp();
+  const { categoryBreakdownPct, paymentBreakdown, spendingTrends, monthlyIncome, monthlyExpenses, lastMonthIncome, lastMonthExpenses, isLoading } = useApp();
   const [period, setPeriod] = useState('Monthly');
   // ponytail: was hardcoded to May/June 2026 — now uses current month
   const [customStart, setCustomStart] = useState(() => {
@@ -71,6 +72,9 @@ export default function AnalyticsPage() {
     );
   };
 
+  // Day 6: show skeleton while data is loading
+  if (isLoading) return <SkeletonAnalytics />;
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -113,42 +117,56 @@ export default function AnalyticsPage() {
         {/* Category pie */}
         <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.5s ease-out 0.1s both' }}>
           <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-3">🍕 Category Breakdown</h3>
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={categoryBreakdownPct} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="amount" nameKey="category" paddingAngle={3}>
-                  {categoryBreakdownPct.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {categoryBreakdownPct.map(c => (
-              <div key={c.category} className="flex items-center gap-1 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
-                <span className="text-slate-600 dark:text-slate-400">{getCategoryIcon(c.category)} {c.category}</span>
-              </div>
-            ))}
-          </div>
+          {/* Day 5: guard — don't render broken empty pie chart */}
+          {categoryBreakdownPct.length === 0
+            ? <EmptyState variant="category" />
+            : (
+              <>
+                <div style={{ height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={categoryBreakdownPct} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="amount" nameKey="category" paddingAngle={3}>
+                        {categoryBreakdownPct.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {categoryBreakdownPct.map(c => (
+                    <div key={c.category} className="flex items-center gap-1 text-xs">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.color }} />
+                      <span className="text-slate-600 dark:text-slate-400">{getCategoryIcon(c.category)} {c.category}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          }
         </div>
 
         {/* Payment method breakdown */}
         <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.5s ease-out 0.15s both' }}>
           <h3 className="font-semibold font-display text-slate-800 dark:text-white mb-3">💳 Payment Method Breakdown</h3>
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={paymentBreakdown} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                <XAxis dataKey="method" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, true)} width={55} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="amount" name="Amount" radius={[6, 6, 0, 0]}>
-                  {paymentBreakdown.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Day 5: guard — don't render broken empty bar chart */}
+          {paymentBreakdown.length === 0
+            ? <EmptyState variant="analytics" body="No payment method data yet. Add transactions with different payment methods." />
+            : (
+              <div style={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={paymentBreakdown} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
+                    <XAxis dataKey="method" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, true)} width={55} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="amount" name="Amount" radius={[6, 6, 0, 0]}>
+                      {paymentBreakdown.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )
+          }
         </div>
       </div>
 
@@ -162,8 +180,8 @@ export default function AnalyticsPage() {
               <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => formatCurrency(v, true)} width={55} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="expense" name="Expense" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name="Expense" fill="var(--color-brand)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="income" name="Income" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

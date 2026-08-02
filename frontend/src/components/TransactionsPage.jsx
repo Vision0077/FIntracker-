@@ -3,7 +3,7 @@ import { Search, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
 import { apiUpload } from '../utils/api';
 import TransactionRow from './TransactionRow';
-import { EmptyState } from './Skeletons';
+import { EmptyState, SkeletonTransactions } from './Skeletons';
 import { getCategoryIcon, getMethodIcon } from '../utils/helpers';
 
 function UploadModal({ onClose }) {
@@ -105,7 +105,7 @@ function UploadModal({ onClose }) {
 }
 
 export default function TransactionsPage() {
-  const { transactions, deleteTransaction } = useApp();
+  const { transactions, deleteTransaction, isLoading } = useApp();
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterMethod, setFilterMethod] = useState('ALL');
@@ -114,6 +114,9 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [uploadModal, setUploadModal] = useState(false);
   const pageSize = 15;
+
+  // Day 6: show skeleton while data loads
+  if (isLoading) return <SkeletonTransactions />;
 
   // ponytail: was recalculated on every render; memoize on exact deps
   const filtered = useMemo(() => transactions
@@ -198,7 +201,12 @@ export default function TransactionsPage() {
       {/* Transaction list */}
       <div className="rounded-2xl bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a] overflow-hidden">
         {paginated.length === 0
-          ? <EmptyState message="No matching transactions" />
+          ? (
+            // Day 5: context-aware empty state
+            search || filterCategory !== 'ALL' || filterMethod !== 'ALL' || filterType !== 'ALL'
+              ? <EmptyState variant="search" />
+              : <EmptyState variant="transactions" />
+          )
           : <div className="divide-y divide-slate-50 dark:divide-[#1e1e3a]">
               {paginated.map((t, i) => <TransactionRow key={t.id} txn={t} onDelete={deleteTransaction} delay={i * 0.02} />)}
             </div>

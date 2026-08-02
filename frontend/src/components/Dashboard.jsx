@@ -89,7 +89,7 @@ export default function Dashboard() {
           </button>
         </div>
         {recentTxns.length === 0
-          ? <EmptyState />
+          ? <EmptyState variant="transactions" body="No transactions yet. Use Quick Add below or import a bank statement." />
           : <div className="space-y-1">
               {recentTxns.map((t, i) => <TransactionRow key={t.id} txn={t} onDelete={deleteTransaction} delay={i * 0.05} />)}
             </div>

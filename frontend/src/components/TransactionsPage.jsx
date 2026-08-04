@@ -42,8 +42,7 @@ function UploadModal({ onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-slate-900/60 dark:bg-black/75 backdrop-blur"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="modal-content w-full max-w-md rounded-2xl p-6 bg-white dark:bg-[#13132b] shadow-2xl border border-slate-100 dark:border-[#1e1e3a]">
@@ -67,7 +66,11 @@ function UploadModal({ onClose }) {
               </div>
             )}
             <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${dragging ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/10' : 'border-slate-200 dark:border-[#2d2d52] hover:border-brand-400'}`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                dragging
+                  ? 'border-brand-500 bg-brand-500/5 dark:bg-brand-500/10'
+                  : 'border-slate-200 dark:border-surface-muted hover:border-brand-400 dark:hover:border-brand-500/50'
+              }`}
               onDragOver={e => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
@@ -216,9 +219,17 @@ export default function TransactionsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#2d2d52] disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-[#1e1e3a] transition-colors">← Prev</button>
-          <span className="text-xs text-slate-500">{page} / {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-[#2d2d52] disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-[#1e1e3a] transition-colors">Next →</button>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-surface-border bg-white dark:bg-surface-card text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-surface-muted/30 transition-colors"
+          >← Prev</button>
+          <span className="text-xs text-slate-500 dark:text-slate-400">{page} / {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-surface-border bg-white dark:bg-surface-card text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-surface-muted/30 transition-colors"
+          >Next →</button>
         </div>
       )}
 

@@ -1,7 +1,34 @@
-import React, { useState } from 'react';
-import { Plus, Check } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Plus, Check, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
 import { getCategoryIcon, getMethodIcon } from '../utils/helpers';
+
+/*
+  Day 8: Real-time inline validation
+  - Each field validates onChange, not just onSubmit
+  - 'touched' tracks which fields the user has interacted with
+    so we don't show errors on pristine (never-touched) fields
+  - Green border + CheckCircle2 icon when valid + has value
+  - Red border + AlertCircle icon + helper text when invalid + touched
+*/
+
+// Returns: 'idle' | 'valid' | 'invalid'
+function getFieldState(value, touched, validator) {
+  if (!touched) return 'idle';
+  return validator(value) ? 'valid' : 'invalid';
+}
+
+function FieldIcon({ state }) {
+  if (state === 'valid')   return <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0" />;
+  if (state === 'invalid') return <AlertCircle  size={15} className="text-rose-400 flex-shrink-0" />;
+  return null;
+}
+
+function fieldClass(state) {
+  if (state === 'valid')   return 'form-input border-emerald-400 dark:border-emerald-500/60 focus:border-emerald-500 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.15)]';
+  if (state === 'invalid') return 'form-input border-rose-400 dark:border-rose-500/60 focus:border-rose-400 focus:shadow-[0_0_0_3px_rgba(244,63,94,0.15)]';
+  return 'form-input';
+}
 
 export default function QuickAddForm() {
   const { addTransaction } = useApp();
@@ -13,30 +40,41 @@ export default function QuickAddForm() {
     transaction_date: new Date().toISOString().split('T')[0],
     type: 'EXPENSE',
   });
-  const [errors, setErrors] = useState({});
+
+  // touched: tracks which fields the user has focused & left (or typed in)
+  const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = useCallback((k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    setTouched(t => ({ ...t, [k]: true })); // mark touched on any change
+  }, []);
 
-  const validate = () => {
-    const e = {};
-    if (!form.description.trim()) e.description = 'Description required';
-    if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0) e.amount = 'Enter a valid amount';
-    if (!form.transaction_date) e.transaction_date = 'Date required';
-    return e;
+  // Validators — return true = valid
+  const validators = {
+    amount:      v => v !== '' && !isNaN(v) && Number(v) > 0,
+    description: v => v.trim().length > 0,
+    transaction_date: v => Boolean(v),
   };
+
+  const amountState  = getFieldState(form.amount, touched.amount, validators.amount);
+  const descState    = getFieldState(form.description, touched.description, validators.description);
+  const dateState    = getFieldState(form.transaction_date, touched.transaction_date, validators.transaction_date);
+
+  const isFormValid = validators.amount(form.amount) && validators.description(form.description) && validators.transaction_date(form.transaction_date);
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    const e = validate();
-    if (Object.keys(e).length) { setErrors(e); return; }
+    // Touch all fields on submit attempt to reveal any hidden errors
+    setTouched({ amount: true, description: true, transaction_date: true });
+    if (!isFormValid) return;
     setSubmitting(true);
     try {
       const ok = await addTransaction({ ...form, amount: Number(form.amount) });
       if (ok !== false) {
         setForm(f => ({ ...f, description: '', amount: '' }));
-        setErrors({});
+        setTouched({});
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
       }
@@ -44,9 +82,6 @@ export default function QuickAddForm() {
       setSubmitting(false);
     }
   };
-
-  const inputClass = (field) =>
-    `form-input ${errors[field] ? 'border-rose-400 focus:border-rose-400' : ''}`;
 
   return (
     <div
@@ -73,8 +108,9 @@ export default function QuickAddForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {/* Amount */}
+      <form onSubmit={handleSubmit} className="space-y-3" noValidate>
+
+        {/* Amount — Day 8: real-time validation */}
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount (₹)</label>
           <div className="relative">
@@ -85,24 +121,42 @@ export default function QuickAddForm() {
               placeholder="0"
               value={form.amount}
               onChange={e => set('amount', e.target.value)}
-              className={`${inputClass('amount')} pl-8`}
+              onBlur={() => setTouched(t => ({ ...t, amount: true }))}
+              className={`${fieldClass(amountState)} pl-8 pr-8`}
             />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+              <FieldIcon state={amountState} />
+            </span>
           </div>
-          {errors.amount && <p className="text-rose-500 text-xs mt-1">{errors.amount}</p>}
+          {amountState === 'invalid' && (
+            <p className="text-rose-500 dark:text-rose-400 text-xs mt-1 flex items-center gap-1">
+              Enter a valid amount greater than ₹0
+            </p>
+          )}
         </div>
 
-        {/* Description */}
+        {/* Description — Day 8: real-time validation */}
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
-          <input
-            id="quick-description"
-            type="text"
-            placeholder="e.g. Zomato lunch order"
-            value={form.description}
-            onChange={e => set('description', e.target.value)}
-            className={inputClass('description')}
-          />
-          {errors.description && <p className="text-rose-500 text-xs mt-1">{errors.description}</p>}
+          <div className="relative">
+            <input
+              id="quick-description"
+              type="text"
+              placeholder="e.g. Zomato lunch order"
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              onBlur={() => setTouched(t => ({ ...t, description: true }))}
+              className={`${fieldClass(descState)} pr-8`}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+              <FieldIcon state={descState} />
+            </span>
+          </div>
+          {descState === 'invalid' && (
+            <p className="text-rose-500 dark:text-rose-400 text-xs mt-1">
+              Description is required
+            </p>
+          )}
         </div>
 
         {/* Category + Method */}
@@ -133,19 +187,25 @@ export default function QuickAddForm() {
           </div>
         </div>
 
-        {/* Date */}
+        {/* Date — Day 8: validation icon */}
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
-          <input
-            type="date"
-            value={form.transaction_date}
-            onChange={e => set('transaction_date', e.target.value)}
-            className={inputClass('transaction_date')}
-            max={new Date().toISOString().split('T')[0]}
-          />
+          <div className="relative">
+            <input
+              type="date"
+              value={form.transaction_date}
+              onChange={e => set('transaction_date', e.target.value)}
+              onBlur={() => setTouched(t => ({ ...t, transaction_date: true }))}
+              className={`${fieldClass(dateState)} pr-8`}
+              max={new Date().toISOString().split('T')[0]}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <FieldIcon state={dateState} />
+            </span>
+          </div>
         </div>
 
-        {/* Submit */}
+        {/* Submit — Day 8: disabled until form valid */}
         <button
           type="submit"
           disabled={submitting || success}

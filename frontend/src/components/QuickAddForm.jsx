@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, Check, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
-import { getCategoryIcon, getMethodIcon } from '../utils/helpers';
+import { getCategoryIcon, getMethodIcon, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
 
 /*
   Day 8: Real-time inline validation
@@ -52,8 +52,9 @@ export default function QuickAddForm() {
   }, []);
 
   // Validators — return true = valid
+  // Day 9: amount stored as formatted display string; parseAmountRaw strips commas before checking
   const validators = {
-    amount:      v => v !== '' && !isNaN(v) && Number(v) > 0,
+    amount:      v => { const n = Number(parseAmountRaw(v)); return v !== '' && !isNaN(n) && n > 0; },
     description: v => v.trim().length > 0,
     transaction_date: v => Boolean(v),
   };
@@ -71,7 +72,7 @@ export default function QuickAddForm() {
     if (!isFormValid) return;
     setSubmitting(true);
     try {
-      const ok = await addTransaction({ ...form, amount: Number(form.amount) });
+      const ok = await addTransaction({ ...form, amount: Number(parseAmountRaw(form.amount)) });
       if (ok !== false) {
         setForm(f => ({ ...f, description: '', amount: '' }));
         setTouched({});
@@ -117,10 +118,11 @@ export default function QuickAddForm() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">₹</span>
             <input
               id="quick-amount"
-              type="number"
-              placeholder="0"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 1,250"
               value={form.amount}
-              onChange={e => set('amount', e.target.value)}
+              onChange={e => set('amount', formatAmountDisplay(e.target.value))}
               onBlur={() => setTouched(t => ({ ...t, amount: true }))}
               className={`${fieldClass(amountState)} pl-8 pr-8`}
             />

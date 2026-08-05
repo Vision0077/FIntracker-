@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Sun, Moon, User, Target, LogOut, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useApp, CATEGORIES } from '../context/AppContext';
-import { getCategoryIcon, formatCurrency } from '../utils/helpers';
+import { getCategoryIcon, formatCurrency, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
 
 function CashForm() {
   const { addTransaction } = useApp();
   const [form, setForm] = useState({
     description: '', amount: '', category: 'MISCELLANEOUS',
-    transaction_date: new Date(2026, 5, 9).toISOString().split('T')[0],
+    transaction_date: new Date().toISOString().split('T')[0],
     type: 'EXPENSE', notes: '', location: 'Auto-detected',
   });
   const [success, setSuccess] = useState(false);
@@ -16,7 +16,7 @@ function CashForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.amount || !form.description) return;
-    addTransaction({ ...form, amount: Number(form.amount), payment_method: 'CASH' });
+    addTransaction({ ...form, amount: Number(parseAmountRaw(form.amount)), payment_method: 'CASH' });
     setForm(f => ({ ...f, amount: '', description: '', notes: '' }));
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);
@@ -29,7 +29,14 @@ function CashForm() {
           <label className="block text-xs text-slate-500 mb-1">Amount (₹)</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
-            <input type="number" placeholder="0" value={form.amount} onChange={e => set('amount', e.target.value)} className="form-input pl-7" />
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={form.amount}
+              onChange={e => set('amount', formatAmountDisplay(e.target.value))}
+              className="form-input pl-7"
+            />
           </div>
         </div>
         <div>

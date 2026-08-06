@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sun, Moon, User, Target, LogOut, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useApp, CATEGORIES } from '../context/AppContext';
 import { getCategoryIcon, formatCurrency, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
+import DatePicker from './DatePicker';
 
 function CashForm() {
   const { addTransaction } = useApp();
@@ -41,7 +42,11 @@ function CashForm() {
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1">Date</label>
-          <input type="date" value={form.transaction_date} onChange={e => set('transaction_date', e.target.value)} className="form-input" />
+          <DatePicker
+            value={form.transaction_date}
+            onChange={v => set('transaction_date', v)}
+            maxDate={new Date().toISOString().split('T')[0]}
+          />
         </div>
       </div>
       <input type="text" placeholder="What did you spend on?" value={form.description} onChange={e => set('description', e.target.value)} className="form-input" />

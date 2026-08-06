@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useApp } from '../context/AppContext';
 import { formatCurrency, getCategoryIcon } from '../utils/helpers';
 import { SkeletonAnalytics, EmptyState } from './Skeletons';
+import DatePicker from './DatePicker';
 
 const PERIODS = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Half-yearly', 'Yearly'];
 
@@ -92,15 +93,25 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Custom date range */}
+      {/* Custom date range — Day 10: DatePicker (no future date restriction for analytics) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div>
           <label className="block text-xs text-slate-400 mb-1">From</label>
-          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="form-input text-xs" />
+          <DatePicker
+            value={customStart}
+            onChange={setCustomStart}
+            maxDate={null}
+            placeholder="Start date"
+          />
         </div>
         <div>
           <label className="block text-xs text-slate-400 mb-1">To</label>
-          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="form-input text-xs" />
+          <DatePicker
+            value={customEnd}
+            onChange={setCustomEnd}
+            maxDate={null}
+            placeholder="End date"
+          />
         </div>
       </div>
 

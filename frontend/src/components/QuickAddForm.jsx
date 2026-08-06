@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Plus, Check, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
 import { getCategoryIcon, getMethodIcon, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
+import DatePicker from './DatePicker';
 
 /*
   Day 8: Real-time inline validation
@@ -189,22 +190,18 @@ export default function QuickAddForm() {
           </div>
         </div>
 
-        {/* Date — Day 8: validation icon */}
+        {/* Date — Day 10: custom DatePicker */}
         <div>
           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
-          <div className="relative">
-            <input
-              type="date"
-              value={form.transaction_date}
-              onChange={e => set('transaction_date', e.target.value)}
-              onBlur={() => setTouched(t => ({ ...t, transaction_date: true }))}
-              className={`${fieldClass(dateState)} pr-8`}
-              max={new Date().toISOString().split('T')[0]}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <FieldIcon state={dateState} />
-            </span>
-          </div>
+          <DatePicker
+            id="quick-date"
+            value={form.transaction_date}
+            onChange={v => { set('transaction_date', v); setTouched(t => ({ ...t, transaction_date: true })); }}
+            maxDate={new Date().toISOString().split('T')[0]}
+          />
+          {dateState === 'invalid' && (
+            <p className="text-rose-500 dark:text-rose-400 text-xs mt-1">Date is required</p>
+          )}
         </div>
 
         {/* Submit — Day 8: disabled until form valid */}

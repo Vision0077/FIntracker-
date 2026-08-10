@@ -177,7 +177,7 @@ export default function TransactionsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Search size={14} /></span>
-          <input type="text" placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="form-input pl-8 text-xs" />
+          <input id="txn-search" type="text" placeholder="Search… (Ctrl+K)" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="form-input pl-8 text-xs" />
         </div>
         <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="form-input text-xs">
           <option value="ALL">All Categories</option>

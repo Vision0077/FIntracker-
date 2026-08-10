@@ -2,17 +2,33 @@ import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { CATEGORY_COLORS } from '../context/AppContext';
 import { formatCurrency, formatDate, getCategoryIcon, getMethodIcon } from '../utils/helpers';
+import ConfirmDialog from './ConfirmDialog';
 
+/*
+  Day 14: Delete now requires confirmation
+  - Trash icon on hover → sets confirming=true
+  - ConfirmDialog slides in (absolute, right-aligned, overlays the row)
+  - Confirm → calls onDelete; Cancel → sets confirming=false
+  - Clicking outside the row also resets confirming via onMouseLeave
+*/
 export default function TransactionRow({ txn, onDelete, delay = 0 }) {
   const [showActions, setShowActions] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const catColor = CATEGORY_COLORS[txn.category] || '#6366f1';
+
+  const handleMouseLeave = () => {
+    setShowActions(false);
+    // Only reset confirming on mouse leave if not actively confirming
+    // so the dialog doesn't vanish mid-click
+    if (!confirming) setShowActions(false);
+  };
 
   return (
     <div
       className="table-row flex items-center gap-3 p-3 rounded-xl group relative"
       style={{ animation: `fadeUp 0.4s ease-out ${delay}s both` }}
       onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onMouseLeave={() => { setShowActions(false); setConfirming(false); }}
     >
       {/* Icon */}
       <div
@@ -47,14 +63,25 @@ export default function TransactionRow({ txn, onDelete, delay = 0 }) {
         </span>
       </div>
 
-      {/* Delete button */}
-      {showActions && (
+      {/* Delete button — shown on hover */}
+      {showActions && !confirming && (
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(txn.id); }}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-500 hover:bg-rose-100 transition-all"
         >
           <Trash2 size={13} />
         </button>
+      )}
+
+      {/* Day 14: Confirm dialog — slides in over the row when confirming */}
+      {confirming && (
+        <ConfirmDialog
+          message="Delete this transaction?"
+          onConfirm={() => { setConfirming(false); onDelete(txn.id); }}
+          onCancel={() => setConfirming(false)}
+          className="absolute right-2 top-1/2 -translate-y-1/2"
+        />
       )}
     </div>
   );

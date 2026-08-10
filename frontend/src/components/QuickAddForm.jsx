@@ -273,32 +273,40 @@ export default function QuickAddForm() {
           )}
         </div>
 
-        {/* Category + Method */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
-            <select
-              value={form.category}
-              onChange={e => set('category', e.target.value)}
-              className="form-input"
-            >
-              {CATEGORIES.map(c => (
-                <option key={c} value={c}>{getCategoryIcon(c)} {c}</option>
-              ))}
-            </select>
+        {/* Category — Day 13: full-width emoji tile grid picker */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {CATEGORIES.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => set('category', c)}
+                className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] font-medium transition-all border ${
+                  form.category === c
+                    ? 'bg-brand-500/15 dark:bg-brand-500/20 border-brand-400 dark:border-brand-500/60 text-brand-700 dark:text-brand-300 shadow-sm'
+                    : 'border-slate-200 dark:border-[#1e1e3a] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#1e1e3a] hover:border-slate-300'
+                }`}
+              >
+                <span className="text-base leading-none">{getCategoryIcon(c)}</span>
+                <span className="truncate w-full text-center leading-tight">{c.charAt(0) + c.slice(1).toLowerCase()}</span>
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Method</label>
-            <select
-              value={form.payment_method}
-              onChange={e => set('payment_method', e.target.value)}
-              className="form-input"
-            >
-              {PAYMENT_METHODS.map(m => (
-                <option key={m} value={m}>{getMethodIcon(m)} {m}</option>
-              ))}
-            </select>
-          </div>
+        </div>
+
+        {/* Method */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Payment Method</label>
+          <select
+            value={form.payment_method}
+            onChange={e => set('payment_method', e.target.value)}
+            className="form-input"
+          >
+            {PAYMENT_METHODS.map(m => (
+              <option key={m} value={m}>{getMethodIcon(m)} {m}</option>
+            ))}
+          </select>
         </div>
 
         {/* Date — Day 10: custom DatePicker */}

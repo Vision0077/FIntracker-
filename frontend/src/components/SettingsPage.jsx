@@ -3,6 +3,7 @@ import { Sun, Moon, User, Target, LogOut, Plus, Edit2, Trash2 } from 'lucide-rea
 import { useApp, CATEGORIES } from '../context/AppContext';
 import { getCategoryIcon, formatCurrency, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
 import DatePicker from './DatePicker';
+import ConfirmDialog from './ConfirmDialog';
 
 function CashForm() {
   const { addTransaction } = useApp();
@@ -73,6 +74,7 @@ export default function SettingsPage() {
   const { theme, toggleTheme, budgets, addBudget, updateBudgetLimit, deleteBudget, user, logout } = useApp();
   const [editBudget, setEditBudget] = useState(null);
   const [newBudget, setNewBudget] = useState({ category: 'FOOD', payment_method: '', limit_amount: '' });
+  const [confirmBudgetId, setConfirmBudgetId] = useState(null);
   const [profile, setProfile] = useState({
     name: user?.full_name || 'Guest User',
     email: user?.email || '',
@@ -153,17 +155,30 @@ export default function SettingsPage() {
                       : <span className={`text-xs font-semibold ${isOver ? 'text-rose-500' : 'text-slate-600 dark:text-slate-400'}`}>{formatCurrency(b.current_spent, true)} / {formatCurrency(b.limit_amount, true)}</span>
                     }
                     <button onClick={() => setEditBudget(editBudget === b.id ? null : b.id)} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-[#1e1e3a] text-slate-400 transition-colors"><Edit2 size={12} /></button>
-                    <button onClick={() => deleteBudget(b.id)} className="p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={12} /></button>
+                    <button
+                      onClick={() => setConfirmBudgetId(b.id)}
+                      className="p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-400 hover:text-rose-500 transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
                 <div className="progress-bar mt-1">
                   <div className="progress-fill" style={{ width: `${pct}%`, background: isOver ? 'var(--color-danger)' : pct > 80 ? 'var(--color-warning)' : 'var(--color-brand)' }} />
                 </div>
                 {isOver && <p className="text-xs text-rose-500 mt-1 font-medium">⚠️ Budget exceeded!</p>}
+                {/* Day 14: confirm dialog appears below progress bar when this budget pending delete */}
+                {confirmBudgetId === b.id && (
+                  <ConfirmDialog
+                    message={`Delete ${b.category} budget?`}
+                    onConfirm={() => { deleteBudget(b.id); setConfirmBudgetId(null); }}
+                    onCancel={() => setConfirmBudgetId(null)}
+                    className="mt-2"
+                  />
+                )}
               </div>
             );
-          })}
-        </div>
+          })}        </div>
         <div className="border-t border-slate-100 dark:border-[#1e1e3a] pt-3 mt-3">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Add New Budget</p>
           <div className="flex gap-2">

@@ -4,10 +4,10 @@ import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/helpers';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'transactions', label: 'Transactions', Icon: ArrowLeftRight },
-  { id: 'analytics', label: 'Analytics', Icon: BarChart2 },
-  { id: 'settings', label: 'Settings', Icon: Settings },
+  { id: 'dashboard',    label: 'Dashboard',    Icon: LayoutDashboard, shortcut: '⌃N' },
+  { id: 'transactions', label: 'Transactions', Icon: ArrowLeftRight,   shortcut: '⌃K' },
+  { id: 'analytics',   label: 'Analytics',    Icon: BarChart2 },
+  { id: 'settings',    label: 'Settings',     Icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -36,7 +36,12 @@ export default function Sidebar() {
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${activePage === id ? 'nav-active' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#13132b] hover:text-slate-800 dark:hover:text-white'}`}
           >
             <Icon size={18} />
-            {label}
+            <span className="flex-1 text-left">{label}</span>
+            {shortcut && (
+              <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#1e1e3a] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#2d2d52] leading-none">
+                {shortcut}
+              </kbd>
+            )}
           </button>
         ))}
       </nav>

@@ -143,6 +143,9 @@ class UploadResponse(BaseModel):
     filename: str
     content_type: str
     size_bytes: int
-    status: str = "received"
+    status: str = "received"           # 'received' | 'parsed' | 'error'
     message: str
-    transactions_parsed: int = 0
+    transactions_parsed: int = 0       # rows read from file
+    transactions_imported: int = 0     # rows successfully inserted to DB
+    transactions_skipped: int = 0      # duplicates skipped
+    parse_errors: list[str] = []       # per-row error messages

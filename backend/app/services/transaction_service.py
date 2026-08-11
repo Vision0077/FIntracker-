@@ -408,3 +408,80 @@ async def _update_budget_spent(
         )
         .values(current_spent=Budget.current_spent + delta)
     )
+
+
+# ---------------------------------------------------------------------------
+# Day 15: CSV Import
+# ---------------------------------------------------------------------------
+
+
+async def parse_and_import_csv(
+    file_bytes: bytes,
+    filename: str,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """
+    Parse a CSV bank statement and bulk-insert valid transactions.
+
+    Calls csv_parser.parse_csv() to extract TransactionCreate objects,
+    then inserts each one via create_transaction() (which handles AI
+    categorisation, budget updates, and dedup via provider_transaction_id).
+
+    Duplicate handling:
+      If a transaction with the same provider_transaction_id already exists
+      for this user it is silently skipped (counted in 'skipped', not 'errors').
+
+    Returns:
+        {
+            "imported": int,    -- rows successfully inserted
+            "skipped": int,     -- duplicates skipped
+            "errors": list[str] -- human-readable messages for invalid rows
+        }
+    """
+    from app.services.csv_parser import parse_csv
+
+    parsed_txns, parse_errors = parse_csv(
+        file_bytes=file_bytes,
+        filename=filename,
+        user_id=user_id,
+    )
+
+    imported = 0
+    skipped = 0
+    import_errors: list[str] = list(parse_errors)  # include parse-time errors
+
+    for txn in parsed_txns:
+        # Dedup check: skip if provider_transaction_id already exists for user
+        if txn.provider_transaction_id:
+            existing = await db.execute(
+                select(Transaction)
+                .where(
+                    and_(
+                        Transaction.user_id == str(user_id),
+                        Transaction.provider_transaction_id == txn.provider_transaction_id,
+                        Transaction.deleted_at.is_(None),
+                    )
+                )
+                .limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                skipped += 1
+                continue
+
+        try:
+            await create_transaction(
+                user_id=user_id,
+                payload=txn,
+                db=db,
+            )
+            imported += 1
+        except Exception as e:
+            import_errors.append(f"Insert error for '{txn.description}': {e}")
+
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "errors": import_errors,
+    }
+

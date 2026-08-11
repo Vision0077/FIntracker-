@@ -75,7 +75,6 @@ async def list_transactions(
 @router.post(
     "/upload",
     response_model=UploadResponse,
-    status_code=status.HTTP_202_ACCEPTED,
     summary="Upload bank statement for parsing (PDF / CSV / Excel)",
 )
 async def upload_statement(
@@ -86,55 +85,102 @@ async def upload_statement(
     """
     **Statement Upload Endpoint** — accepts PDF, CSV, or Excel files.
 
-    The file is received and validated. Parsing is performed asynchronously.
-    Supported formats:
-    - PDF bank statements (via pdfplumber)
-    - CSV exports
-    - Excel (.xlsx) via openpyxl / pandas
+    - **CSV** — fully parsed and imported (Day 15).
+    - **PDF** — coming in Day 16 (pdfplumber integration).
+    - **Excel** — coming in Day 17 (openpyxl integration).
 
-    > **Note**: Full parsing pipeline is scaffold — transactions are not
-    > yet auto-imported. Integrate your parser in `services/transaction_service.py`.
+    CSV parsing supports HDFC, SBI, ICICI, and generic bank export formats.
+    Duplicate transactions are detected via provider_transaction_id and skipped.
     """
-    allowed_types = {
+    from fastapi import HTTPException
+
+    allowed_extensions = (".pdf", ".csv", ".xlsx", ".xls", ".txt")
+    allowed_content_types = {
         "application/pdf",
         "text/csv",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
         "text/plain",
     }
-    content_type = file.content_type or "application/octet-stream"
 
-    # Read file for size measurement
+    filename = file.filename or "unknown"
+    content_type = file.content_type or "application/octet-stream"
     contents = await file.read()
     size_bytes = len(contents)
 
-    if content_type not in allowed_types and not file.filename.endswith(
-        (".pdf", ".csv", ".xlsx", ".xls")
-    ):
-        from fastapi import HTTPException
+    # Validate file type
+    is_csv = (
+        content_type in {"text/csv", "text/plain"}
+        or filename.lower().endswith((".csv", ".txt"))
+    )
+    is_pdf = (
+        content_type == "application/pdf"
+        or filename.lower().endswith(".pdf")
+    )
+    is_excel = (
+        content_type in {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+        }
+        or filename.lower().endswith((".xlsx", ".xls"))
+    )
 
+    if not (is_csv or is_pdf or is_excel):
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=(
-                f"Unsupported file type: {content_type}. "
-                "Please upload a PDF, CSV, or Excel file."
+                f"Unsupported file type '{content_type}'. "
+                f"Please upload a PDF, CSV, or Excel (.xlsx) bank statement."
             ),
         )
 
-    # TODO: dispatch to async parsing task (Celery / BackgroundTasks)
-    # parsed_transactions = await parse_statement(contents, file.filename, current_user.id)
+    # --- Day 15: CSV fully implemented ---
+    if is_csv:
+        result = await transaction_service.parse_and_import_csv(
+            file_bytes=contents,
+            filename=filename,
+            user_id=current_user.id,
+            db=db,
+        )
+        total_parsed = result["imported"] + result["skipped"] + len(result["errors"])
+        has_errors = bool(result["errors"])
+        return UploadResponse(
+            filename=filename,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            status="parsed" if not has_errors else "partial",
+            message=(
+                f"CSV parsed: {result['imported']} imported, "
+                f"{result['skipped']} duplicates skipped"
+                + (f", {len(result['errors'])} rows had errors." if has_errors else ".")
+            ),
+            transactions_parsed=total_parsed,
+            transactions_imported=result["imported"],
+            transactions_skipped=result["skipped"],
+            parse_errors=result["errors"][:20],   # cap at 20 to keep response size reasonable
+        )
 
+    # --- Day 16: PDF — coming soon ---
+    if is_pdf:
+        return UploadResponse(
+            filename=filename,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            status="pending",
+            message="PDF parsing coming in Day 16 (pdfplumber integration). File received.",
+            transactions_parsed=0,
+        )
+
+    # --- Day 17: Excel — coming soon ---
     return UploadResponse(
-        filename=file.filename or "unknown",
+        filename=filename,
         content_type=content_type,
         size_bytes=size_bytes,
-        status="received",
-        message=(
-            "File received successfully. "
-            "Statement parsing pipeline is pending ML/parser integration."
-        ),
+        status="pending",
+        message="Excel parsing coming in Day 17 (openpyxl integration). File received.",
         transactions_parsed=0,
     )
+
 
 
 @router.post(

@@ -160,15 +160,30 @@ async def upload_statement(
             parse_errors=result["errors"][:20],   # cap at 20 to keep response size reasonable
         )
 
-    # --- Day 16: PDF — coming soon ---
+    # --- Day 16: PDF — fully implemented (pdfplumber) ---
     if is_pdf:
+        result = await transaction_service.parse_and_import_pdf(
+            file_bytes=contents,
+            filename=filename,
+            user_id=current_user.id,
+            db=db,
+        )
+        total_parsed = result["imported"] + result["skipped"] + len(result["errors"])
+        has_errors = bool(result["errors"])
         return UploadResponse(
             filename=filename,
             content_type=content_type,
             size_bytes=size_bytes,
-            status="pending",
-            message="PDF parsing coming in Day 16 (pdfplumber integration). File received.",
-            transactions_parsed=0,
+            status="parsed" if not has_errors else "partial",
+            message=(
+                f"PDF parsed: {result['imported']} imported, "
+                f"{result['skipped']} duplicates skipped"
+                + (f", {len(result['errors'])} rows had errors." if has_errors else ".")
+            ),
+            transactions_parsed=total_parsed,
+            transactions_imported=result["imported"],
+            transactions_skipped=result["skipped"],
+            parse_errors=result["errors"][:20],
         )
 
     # --- Day 17: Excel — coming soon ---

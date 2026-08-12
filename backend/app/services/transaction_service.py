@@ -485,3 +485,74 @@ async def parse_and_import_csv(
         "errors": import_errors,
     }
 
+
+# ---------------------------------------------------------------------------
+# Day 16: PDF Import
+# ---------------------------------------------------------------------------
+
+
+async def parse_and_import_pdf(
+    file_bytes: bytes,
+    filename: str,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """
+    Parse a PDF bank statement and bulk-insert valid transactions.
+
+    Calls pdf_parser.parse_pdf() to extract TransactionCreate objects,
+    then inserts each one via create_transaction() with the same
+    dedup + error-isolation logic as parse_and_import_csv.
+
+    Returns:
+        {
+            "imported": int,    -- rows successfully inserted
+            "skipped": int,     -- duplicates skipped
+            "errors": list[str] -- human-readable messages for invalid rows/pages
+        }
+    """
+    from app.services.pdf_parser import parse_pdf
+
+    parsed_txns, parse_errors = parse_pdf(
+        file_bytes=file_bytes,
+        filename=filename,
+        user_id=user_id,
+    )
+
+    imported = 0
+    skipped = 0
+    import_errors: list[str] = list(parse_errors)
+
+    for txn in parsed_txns:
+        # Dedup check
+        if txn.provider_transaction_id:
+            existing = await db.execute(
+                select(Transaction)
+                .where(
+                    and_(
+                        Transaction.user_id == str(user_id),
+                        Transaction.provider_transaction_id == txn.provider_transaction_id,
+                        Transaction.deleted_at.is_(None),
+                    )
+                )
+                .limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                skipped += 1
+                continue
+
+        try:
+            await create_transaction(
+                user_id=user_id,
+                payload=txn,
+                db=db,
+            )
+            imported += 1
+        except Exception as e:
+            import_errors.append(f"Insert error for '{txn.description}': {e}")
+
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "errors": import_errors,
+    }

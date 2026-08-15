@@ -15,6 +15,7 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
     UploadResponse,
+    UploadPreviewResponse,
 )
 from app.services.auth_service import get_current_user
 from app.services import transaction_service
@@ -186,14 +187,71 @@ async def upload_statement(
             parse_errors=result["errors"][:20],
         )
 
-    # --- Day 17: Excel — coming soon ---
+    # --- Day 17: Excel — fully implemented (openpyxl) ---
+    result = await transaction_service.parse_and_import_excel(
+        file_bytes=contents,
+        filename=filename,
+        user_id=current_user.id,
+        db=db,
+    )
+    total_parsed = result["imported"] + result["skipped"] + len(result["errors"])
+    has_errors = bool(result["errors"])
     return UploadResponse(
         filename=filename,
         content_type=content_type,
         size_bytes=size_bytes,
-        status="pending",
-        message="Excel parsing coming in Day 17 (openpyxl integration). File received.",
-        transactions_parsed=0,
+        status="parsed" if not has_errors else "partial",
+        message=(
+            f"Excel parsed: {result['imported']} imported, "
+            f"{result['skipped']} duplicates skipped"
+            + (f", {len(result['errors'])} rows had errors." if has_errors else ".")
+        ),
+        transactions_parsed=total_parsed,
+        transactions_imported=result["imported"],
+        transactions_skipped=result["skipped"],
+        parse_errors=result["errors"][:20],
+    )
+
+
+@router.post(
+    "/upload/preview",
+    response_model=UploadPreviewResponse,
+    summary="Preview parsed transactions without importing (Day 19)",
+)
+async def preview_statement(
+    file: UploadFile = File(..., description="Bank statement to preview"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UploadPreviewResponse:
+    """
+    **Dry-run parse** — parses the uploaded file and returns the extracted rows
+    WITHOUT inserting anything into the database.
+
+    The frontend uses this to render a review table (Step 3 of the import stepper)
+    where the user can see all parsed rows and which ones are already imported,
+    before clicking Confirm to trigger the real import.
+
+    Each row includes:
+    - `is_duplicate` — True if this row already exists in the user's transactions
+    - All transaction fields (date, description, amount, type, category, method)
+    """
+    from fastapi import HTTPException
+    contents = await file.read()
+    filename = file.filename or "unknown"
+
+    result = await transaction_service.parse_statement_preview(
+        file_bytes=contents,
+        filename=filename,
+        user_id=current_user.id,
+        db=db,
+    )
+    return UploadPreviewResponse(
+        filename=filename,
+        rows=result["rows"],
+        errors=result["errors"][:20],
+        total_rows=len(result["rows"]),
+        new_rows=sum(1 for r in result["rows"] if not r["is_duplicate"]),
+        duplicate_rows=sum(1 for r in result["rows"] if r["is_duplicate"]),
     )
 
 

@@ -143,9 +143,38 @@ class UploadResponse(BaseModel):
     filename: str
     content_type: str
     size_bytes: int
-    status: str = "received"           # 'received' | 'parsed' | 'error'
+    status: str = "received"           # 'received' | 'parsed' | 'partial' | 'pending' | 'error'
     message: str
     transactions_parsed: int = 0       # rows read from file
     transactions_imported: int = 0     # rows successfully inserted to DB
     transactions_skipped: int = 0      # duplicates skipped
     parse_errors: list[str] = []       # per-row error messages
+
+
+# ---------------------------------------------------------------------------
+# Day 19: Preview response
+# ---------------------------------------------------------------------------
+
+
+class UploadPreviewRow(BaseModel):
+    """Single parsed row returned by the preview (dry-run) endpoint."""
+
+    date: str                          # ISO date: "2024-06-12"
+    description: str
+    amount: float
+    type: str                          # "INCOME" | "EXPENSE"
+    payment_method: str
+    category: str
+    is_duplicate: bool                 # True if already imported
+    provider_transaction_id: Optional[str]
+
+
+class UploadPreviewResponse(BaseModel):
+    """Response for POST /api/v1/transactions/upload/preview."""
+
+    filename: str
+    total_rows: int                    # total parsed rows
+    new_rows: int                      # rows not yet in DB
+    duplicate_rows: int                # rows already in DB
+    rows: list[UploadPreviewRow]       # full row details for review table
+    errors: list[str] = []            # parse-time errors

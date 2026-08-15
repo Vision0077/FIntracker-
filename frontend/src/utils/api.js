@@ -62,3 +62,28 @@ export async function apiUpload(file, token) {
   }
   return data;
 }
+
+// Day 19: Dry-run preview — parse without inserting, returns row list for review
+export async function apiUploadPreview(file, token) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/transactions/upload/preview`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const err = new Error(data?.detail || 'Preview failed');
+    err.status = response.status;
+    throw err;
+  }
+  return data;   // { filename, total_rows, new_rows, duplicate_rows, rows, errors }
+}

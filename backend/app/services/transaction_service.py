@@ -487,6 +487,139 @@ async def parse_and_import_csv(
 
 
 # ---------------------------------------------------------------------------
+# Day 17: Excel Import
+# ---------------------------------------------------------------------------
+
+
+async def parse_and_import_excel(
+    file_bytes: bytes,
+    filename: str,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """
+    Parse an Excel (.xlsx/.xls) bank statement and bulk-insert transactions.
+
+    Mirrors parse_and_import_csv / parse_and_import_pdf exactly.
+    Returns {imported, skipped, errors}.
+    """
+    from app.services.excel_parser import parse_excel
+
+    parsed_txns, parse_errors = parse_excel(
+        file_bytes=file_bytes,
+        filename=filename,
+        user_id=user_id,
+    )
+
+    imported = 0
+    skipped = 0
+    import_errors: list[str] = list(parse_errors)
+
+    for txn in parsed_txns:
+        if txn.provider_transaction_id:
+            existing = await db.execute(
+                select(Transaction)
+                .where(
+                    and_(
+                        Transaction.user_id == str(user_id),
+                        Transaction.provider_transaction_id == txn.provider_transaction_id,
+                        Transaction.deleted_at.is_(None),
+                    )
+                )
+                .limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                skipped += 1
+                continue
+
+        try:
+            await create_transaction(user_id=user_id, payload=txn, db=db)
+            imported += 1
+        except Exception as e:
+            import_errors.append(f"Insert error for '{txn.description}': {e}")
+
+    return {"imported": imported, "skipped": skipped, "errors": import_errors}
+
+
+# ---------------------------------------------------------------------------
+# Day 19: Preview (dry_run) — parse without inserting
+# ---------------------------------------------------------------------------
+
+
+async def parse_statement_preview(
+    file_bytes: bytes,
+    filename: str,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """
+    Parse a statement file and return parsed rows WITHOUT inserting them.
+
+    Used by the frontend review step (Day 18/19 stepper).
+    Each row is returned as a plain dict with the fields the user will see.
+    Also checks which rows would be duplicates (already exist in DB).
+
+    Returns:
+        {
+            "rows": list[dict],   -- parsed transaction previews
+            "errors": list[str],  -- parse-time errors
+        }
+
+    Row shape:
+        {
+            "date": "2024-06-12",
+            "description": "UPI/ZOMATO",
+            "amount": 450.0,
+            "type": "EXPENSE",
+            "payment_method": "UPI",
+            "category": "FOOD",
+            "is_duplicate": bool,  -- True if already imported
+            "provider_transaction_id": str,
+        }
+    """
+    from app.services.csv_parser import parse_csv
+    from app.services.pdf_parser import parse_pdf
+    from app.services.excel_parser import parse_excel
+
+    fname_lower = filename.lower()
+    if fname_lower.endswith((".xlsx", ".xls")):
+        parsed_txns, parse_errors = parse_excel(file_bytes, filename, user_id)
+    elif fname_lower.endswith(".pdf"):
+        parsed_txns, parse_errors = parse_pdf(file_bytes, filename, user_id)
+    else:
+        parsed_txns, parse_errors = parse_csv(file_bytes, filename, user_id)
+
+    rows = []
+    for txn in parsed_txns:
+        is_dup = False
+        if txn.provider_transaction_id:
+            existing = await db.execute(
+                select(Transaction)
+                .where(
+                    and_(
+                        Transaction.user_id == str(user_id),
+                        Transaction.provider_transaction_id == txn.provider_transaction_id,
+                        Transaction.deleted_at.is_(None),
+                    )
+                )
+                .limit(1)
+            )
+            is_dup = existing.scalar_one_or_none() is not None
+
+        rows.append({
+            "date": txn.transaction_date.isoformat(),
+            "description": txn.description,
+            "amount": float(txn.amount),
+            "type": txn.type,
+            "payment_method": txn.payment_method,
+            "category": txn.category,
+            "is_duplicate": is_dup,
+            "provider_transaction_id": txn.provider_transaction_id,
+        })
+
+    return {"rows": rows, "errors": parse_errors}
+
+# ---------------------------------------------------------------------------
 # Day 16: PDF Import
 # ---------------------------------------------------------------------------
 

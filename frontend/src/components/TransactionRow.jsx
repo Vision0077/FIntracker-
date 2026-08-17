@@ -1,27 +1,19 @@
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { CATEGORY_COLORS } from '../context/AppContext';
+import { CATEGORY_COLORS, useApp } from '../context/AppContext';
 import { formatCurrency, formatDate, getCategoryIcon, getMethodIcon } from '../utils/helpers';
 import ConfirmDialog from './ConfirmDialog';
 
 /*
   Day 14: Delete now requires confirmation
-  - Trash icon on hover → sets confirming=true
-  - ConfirmDialog slides in (absolute, right-aligned, overlays the row)
-  - Confirm → calls onDelete; Cancel → sets confirming=false
-  - Clicking outside the row also resets confirming via onMouseLeave
+  Day 20: Duplicate badge — shows ⚠ Possible duplicate for flagged transactions
 */
 export default function TransactionRow({ txn, onDelete, delay = 0 }) {
   const [showActions, setShowActions] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const { duplicateIds } = useApp();
+  const isDuplicate = duplicateIds?.has(txn.id);
   const catColor = CATEGORY_COLORS[txn.category] || '#6366f1';
-
-  const handleMouseLeave = () => {
-    setShowActions(false);
-    // Only reset confirming on mouse leave if not actively confirming
-    // so the dialog doesn't vanish mid-click
-    if (!confirming) setShowActions(false);
-  };
 
   return (
     <div
@@ -41,7 +33,7 @@ export default function TransactionRow({ txn, onDelete, delay = 0 }) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{txn.description}</p>
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           <span
             className="text-xs px-1.5 py-0.5 rounded-md font-medium"
             style={{ background: `${catColor}18`, color: catColor }}
@@ -50,6 +42,15 @@ export default function TransactionRow({ txn, onDelete, delay = 0 }) {
           </span>
           <span className="text-xs text-slate-400">{getMethodIcon(txn.payment_method)} {txn.payment_method}</span>
           <span className="text-xs text-slate-400">{formatDate(txn.transaction_date)}</span>
+          {/* Day 20: Duplicate flag badge */}
+          {isDuplicate && (
+            <span
+              className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/20"
+              title="Possible duplicate — same amount and date as another transaction"
+            >
+              ⚠ Duplicate
+            </span>
+          )}
         </div>
       </div>
 
@@ -74,7 +75,7 @@ export default function TransactionRow({ txn, onDelete, delay = 0 }) {
         </button>
       )}
 
-      {/* Day 14: Confirm dialog — slides in over the row when confirming */}
+      {/* Day 14: Confirm dialog */}
       {confirming && (
         <ConfirmDialog
           message="Delete this transaction?"

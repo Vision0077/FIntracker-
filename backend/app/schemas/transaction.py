@@ -178,3 +178,23 @@ class UploadPreviewResponse(BaseModel):
     duplicate_rows: int                # rows already in DB
     rows: list[UploadPreviewRow]       # full row details for review table
     errors: list[str] = []            # parse-time errors
+
+
+# ---------------------------------------------------------------------------
+# Day 20: Duplicate detection
+# ---------------------------------------------------------------------------
+
+
+class DuplicateGroup(BaseModel):
+    """A cluster of transaction IDs that are likely duplicates of each other."""
+    ids: list[str]                     # transaction IDs in this group
+    reason: str                        # human-readable reason (e.g. "Same amount ₹450 on 2024-06-12")
+    amount: float
+    date: str                          # ISO date of the group
+    description: str                   # representative description
+
+
+class DuplicatesResponse(BaseModel):
+    """Response for GET /api/v1/transactions/duplicates."""
+    groups: list[DuplicateGroup]
+    total_flagged: int                 # total unique transaction IDs flagged

@@ -16,6 +16,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
     UploadResponse,
     UploadPreviewResponse,
+    DuplicatesResponse,
 )
 from app.services.auth_service import get_current_user
 from app.services import transaction_service
@@ -350,3 +351,32 @@ async def delete_transaction(
         db=db,
     )
     return {"message": "Transaction deleted successfully."}
+
+
+@router.get(
+    "/duplicates",
+    response_model=DuplicatesResponse,
+    summary="Find likely duplicate transactions (Day 20)",
+)
+async def get_duplicates(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DuplicatesResponse:
+    """
+    **Duplicate Detection** — scans the user's active transactions for likely duplicates.
+
+    Two passes:
+    1. **Exact** — same `provider_transaction_id` (import dedup edge cases)
+    2. **Fuzzy** — same `amount + type` within a ±1-day window (manual + import overlap)
+
+    Returns groups of IDs with a human-readable reason for each group.
+    The frontend uses the flat `ids` list to show a ⚠ badge on `TransactionRow`.
+    """
+    result = await transaction_service.find_duplicate_transactions(
+        user_id=current_user.id,
+        db=db,
+    )
+    return DuplicatesResponse(
+        groups=result["groups"],
+        total_flagged=result["total_flagged"],
+    )

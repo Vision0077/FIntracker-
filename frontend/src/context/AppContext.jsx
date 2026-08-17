@@ -50,6 +50,8 @@ export function AppProvider({ children }) {
   const [spendingTrends, setSpendingTrends] = useState([]);
   const [categoryBreakdownPct, setCategoryBreakdownPct] = useState([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState([]);
+  // Day 20: Set of transaction IDs flagged as likely duplicates
+  const [duplicateIds, setDuplicateIds] = useState(new Set());
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -97,7 +99,7 @@ export function AppProvider({ children }) {
     const monthYear = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
     // ponytail: fire all 7 requests in parallel — was 7 serial round-trips
-    const [summaryRes, compRes, trendsRes, catRes, payRes, txRes, budRes] = await Promise.allSettled([
+    const [summaryRes, compRes, trendsRes, catRes, payRes, txRes, budRes, dupRes] = await Promise.allSettled([
       apiFetch('/analytics/dashboard-summary', { token: authToken }),
       apiFetch(`/analytics/comparison?period_type=monthly&current_start=${curStart}&current_end=${curEnd}&previous_start=${prevStart}&previous_end=${prevEnd}`, { token: authToken }),
       apiFetch('/analytics/spending-trends?period=monthly', { token: authToken }),
@@ -105,6 +107,7 @@ export function AppProvider({ children }) {
       apiFetch('/analytics/payment-method-breakdown', { token: authToken }),
       apiFetch('/transactions?page=1&page_size=100', { token: authToken }),
       apiFetch(`/budgets?month_year=${monthYear}`, { token: authToken }),
+      apiFetch('/transactions/duplicates', { token: authToken }),
     ]);
 
     if (summaryRes.status === 'fulfilled') {
@@ -155,6 +158,13 @@ export function AppProvider({ children }) {
     if (budRes.status === 'fulfilled') {
       setBudgets(budRes.value.items || []);
     } else console.warn('Budgets fetch failed:', budRes.reason);
+
+    // Day 20: duplicate IDs — build flat Set from groups
+    if (dupRes.status === 'fulfilled') {
+      const ids = new Set();
+      (dupRes.value.groups || []).forEach(g => g.ids.forEach(id => ids.add(id)));
+      setDuplicateIds(ids);
+    } else console.warn('Duplicates fetch failed:', dupRes?.reason);
   };
 
   useEffect(() => {
@@ -274,6 +284,7 @@ export function AppProvider({ children }) {
       lastMonthIncome, lastMonthExpenses,
       spendingTrends,
       categoryBreakdownPct, paymentBreakdown,
+      duplicateIds,
       refreshData, logout,
     }}>
       {children}

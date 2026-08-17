@@ -5,6 +5,7 @@ import TransactionRow from './TransactionRow';
 import { EmptyState, SkeletonTransactions } from './Skeletons';
 import { apiUpload, apiUploadPreview } from '../utils/api';
 import { formatCurrency, getCategoryIcon, getMethodIcon } from '../utils/helpers';
+import { recordUploadEvent } from './SettingsPage';
 
 // Day 18+19: 4-step upload stepper
 // Step 1: Drop zone  → Step 2: Parsing (preview call) → Step 3: Review table → Step 4: Done
@@ -74,16 +75,22 @@ function UploadModal({ onClose }) {
 
   // Step 3 → 4: real import
   const handleConfirm = async () => {
-    setStep(1);   // reuse parsing spinner
+    setStep(1);
     setError('');
     try {
       const data = await apiUpload(file, token);
       setResult(data);
       setStep(3);
+      // Day 21: record to upload history in localStorage
+      recordUploadEvent({
+        filename: file?.name || 'unknown',
+        imported: data.transactions_imported || 0,
+        skipped: data.transactions_skipped || 0,
+      });
       if (refreshData) await refreshData(token);
     } catch (err) {
       setError(err.message || 'Import failed');
-      setStep(2);  // go back to review on error
+      setStep(2);
     }
   };
 

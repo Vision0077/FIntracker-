@@ -1,9 +1,86 @@
-import React, { useState } from 'react';
-import { Sun, Moon, User, Target, LogOut, Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sun, Moon, User, Target, LogOut, Plus, Edit2, Trash2, History } from 'lucide-react';
 import { useApp, CATEGORIES } from '../context/AppContext';
 import { getCategoryIcon, formatCurrency, formatAmountDisplay, parseAmountRaw } from '../utils/helpers';
 import DatePicker from './DatePicker';
 import ConfirmDialog from './ConfirmDialog';
+
+const UPLOAD_HISTORY_KEY = 'fintrack-upload-history';
+
+// Day 21: helper to read upload history from localStorage
+export function getUploadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(UPLOAD_HISTORY_KEY) || '[]');
+  } catch { return []; }
+}
+
+// Day 21: helper to push a new upload event (called by TransactionsPage on success)
+export function recordUploadEvent(event) {
+  const history = getUploadHistory();
+  history.unshift({ ...event, date: new Date().toISOString() });
+  localStorage.setItem(UPLOAD_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+}
+
+function formatIcon(filename = '') {
+  const f = filename.toLowerCase();
+  if (f.endsWith('.pdf')) return '📄';
+  if (f.endsWith('.xlsx') || f.endsWith('.xls')) return '📊';
+  return '📋';
+}
+
+// Day 21: Upload History component
+function UploadHistory() {
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    setHistory(getUploadHistory());
+  }, []);
+
+  const handleClear = () => {
+    localStorage.removeItem(UPLOAD_HISTORY_KEY);
+    setHistory([]);
+  };
+
+  return (
+    <div className="rounded-2xl p-5 bg-white dark:bg-[#13132b] border border-slate-100 dark:border-[#1e1e3a]" style={{ animation: 'fadeUp 0.4s ease-out 0.2s both' }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold font-display text-slate-800 dark:text-white flex items-center gap-2">
+          <History size={16} className="text-brand-500" /> Upload History
+        </h3>
+        {history.length > 0 && (
+          <button onClick={handleClear} className="text-xs text-slate-400 hover:text-rose-500 transition-colors">
+            Clear All
+          </button>
+        )}
+      </div>
+
+      {history.length === 0 ? (
+        <div className="text-center py-6">
+          <div className="text-3xl mb-2 opacity-40">📂</div>
+          <p className="text-xs text-slate-400">No uploads yet — import a bank statement to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {history.slice(0, 10).map((item, i) => (
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-[#0d0d1f] border border-slate-100 dark:border-[#1e1e3a]">
+              <span className="text-xl flex-shrink-0">{formatIcon(item.filename)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{item.filename}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs font-semibold text-emerald-500">+{item.imported}</p>
+                {item.skipped > 0 && <p className="text-[10px] text-slate-400">{item.skipped} skipped</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CashForm() {
   const { addTransaction } = useApp();
@@ -200,6 +277,9 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Track cash withdrawals and spending manually.</p>
         <CashForm />
       </div>
+
+      {/* Day 21: Upload History */}
+      <UploadHistory />
 
       {/* Logout */}
       <button onClick={logout} className="w-full py-3 rounded-xl border border-rose-500/20 text-rose-500 font-semibold text-sm hover:bg-rose-500/10 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm">

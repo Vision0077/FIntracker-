@@ -689,3 +689,117 @@ async def parse_and_import_pdf(
         "skipped": skipped,
         "errors": import_errors,
     }
+
+
+# ---------------------------------------------------------------------------
+# Day 20: Duplicate detection
+# ---------------------------------------------------------------------------
+
+
+async def find_duplicate_transactions(
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """
+    Find likely duplicate transactions for the given user.
+
+    Detection logic (two passes):
+
+    Pass 1 — Exact provider_transaction_id duplicates:
+      Two active transactions sharing the same non-null provider_transaction_id.
+      This should not happen due to the UNIQUE constraint, but handles edge cases
+      from manual entry or constraint misses.
+
+    Pass 2 — Fuzzy duplicates:
+      Active transactions where BOTH of these match:
+        - amount (exact) + type (INCOME/EXPENSE)
+        - transaction_date within a ±1-day window
+      These are common when a user both imports a bank statement AND manually
+      enters the same transaction, or imports the same statement twice with
+      slightly different dates.
+
+    Groups with only 1 member are excluded (not duplicates).
+
+    Returns:
+        {
+            "groups": list[DuplicateGroup-like dicts],
+            "total_flagged": int
+        }
+    """
+    from datetime import timedelta
+    from collections import defaultdict
+
+    # Fetch all active transactions for this user
+    result = await db.execute(
+        select(Transaction)
+        .where(
+            and_(
+                Transaction.user_id == str(user_id),
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        .order_by(Transaction.transaction_date, Transaction.amount)
+    )
+    txns = result.scalars().all()
+
+    groups: list[dict] = []
+    flagged_ids: set[str] = set()
+
+    # Pass 1: exact provider_transaction_id match
+    by_provider_id: dict[str, list[Transaction]] = defaultdict(list)
+    for t in txns:
+        if t.provider_transaction_id:
+            by_provider_id[t.provider_transaction_id].append(t)
+
+    for pid, members in by_provider_id.items():
+        if len(members) >= 2:
+            ids = [m.id for m in members]
+            rep = members[0]
+            groups.append({
+                "ids": ids,
+                "reason": f"Exact match — same import ID on {rep.transaction_date}",
+                "amount": float(rep.amount),
+                "date": rep.transaction_date.isoformat(),
+                "description": rep.description,
+            })
+            flagged_ids.update(ids)
+
+    # Pass 2: fuzzy match — same amount+type within ±1 day window
+    # Sort by date for efficient sliding window
+    for i, t in enumerate(txns):
+        if t.id in flagged_ids:
+            continue  # already captured by Pass 1
+        cluster = [t]
+        for j in range(i + 1, len(txns)):
+            other = txns[j]
+            if other.id in flagged_ids:
+                continue
+            # Stop scanning once dates are more than 1 day ahead
+            if (other.transaction_date - t.transaction_date).days > 1:
+                break
+            if (
+                other.amount == t.amount
+                and other.type == t.type
+                and abs((other.transaction_date - t.transaction_date).days) <= 1
+            ):
+                cluster.append(other)
+
+        if len(cluster) >= 2:
+            ids = [m.id for m in cluster]
+            # Only add if none are already flagged (avoid double-grouping)
+            if not any(mid in flagged_ids for mid in ids):
+                date_str = t.transaction_date.isoformat()
+                groups.append({
+                    "ids": ids,
+                    "reason": (
+                        f"Same amount ₹{float(t.amount):,.2f} ({t.type}) "
+                        f"within 1 day of {date_str}"
+                    ),
+                    "amount": float(t.amount),
+                    "date": date_str,
+                    "description": t.description,
+                })
+                flagged_ids.update(ids)
+
+    total_flagged = len(flagged_ids)
+    return {"groups": groups, "total_flagged": total_flagged}

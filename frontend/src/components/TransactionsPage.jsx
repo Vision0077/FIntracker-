@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Search, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
 import TransactionRow from './TransactionRow';
@@ -261,6 +261,8 @@ function UploadModal({ onClose }) {
 
 export default function TransactionsPage() {
   const { transactions, deleteTransaction, isLoading } = useApp();
+  // Day 22: raw = controlled input value, search = debounced query used for filtering
+  const [searchRaw, setSearchRaw] = useState('');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterMethod, setFilterMethod] = useState('ALL');
@@ -270,13 +272,34 @@ export default function TransactionsPage() {
   const [uploadModal, setUploadModal] = useState(false);
   const pageSize = 15;
 
+  // Day 22: 300ms debounce — avoids re-filtering on every keystroke
+  const debounceRef = useRef(null);
+  const handleSearchChange = useCallback((val) => {
+    setSearchRaw(val);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(val);
+      setPage(1);
+    }, 300);
+  }, []);
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
   // Day 6: show skeleton while data loads
   if (isLoading) return <SkeletonTransactions />;
 
-  // ponytail: was recalculated on every render; memoize on exact deps
+  // Day 22: full-text search — description + merchant name + category + payment method
+  const q = search.trim().toLowerCase();
   const filtered = useMemo(() => transactions
     .filter(t => {
-      if (search && !t.description.toLowerCase().includes(search.toLowerCase())) return false;
+      if (q) {
+        const haystack = [
+          t.description,
+          t.raw_merchant_name || '',
+          t.category,
+          t.payment_method,
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       if (filterCategory !== 'ALL' && t.category !== filterCategory) return false;
       if (filterMethod !== 'ALL' && t.payment_method !== filterMethod) return false;
       if (filterType !== 'ALL' && t.type !== filterType) return false;
@@ -289,7 +312,8 @@ export default function TransactionsPage() {
       if (sortBy === 'amount_asc') return a.amount - b.amount;
       return 0;
     }),
-  [transactions, search, filterCategory, filterMethod, filterType, sortBy]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [transactions, q, filterCategory, filterMethod, filterType, sortBy]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -311,10 +335,15 @@ export default function TransactionsPage() {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-display text-slate-800 dark:text-white">All Transactions</h2>
-          <p className="text-sm text-slate-400 mt-0.5">{filtered.length} transactions found</p>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {q
+              ? <span><span className="font-semibold text-brand-500">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''} for &ldquo;{searchRaw}&rdquo;</span>
+              : <span>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</span>
+            }
+          </p>
         </div>
         <button
           onClick={() => setUploadModal(true)}
@@ -325,12 +354,40 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Search size={14} /></span>
-          <input id="txn-search" type="text" placeholder="Search… (Ctrl+K)" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="form-input pl-8 text-xs" />
-        </div>
+      {/* Day 22: Prominent full-width search bar */}
+      <div className="relative mb-3">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+          <Search size={16} />
+        </span>
+        <input
+          id="txn-search"
+          type="text"
+          placeholder="Search by description, category, or payment method… (Ctrl+K)"
+          value={searchRaw}
+          onChange={e => handleSearchChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') {
+              setSearchRaw(''); setSearch(''); setPage(1);
+              e.currentTarget.blur();
+            }
+          }}
+          className="form-input pl-10 pr-10 py-3 text-sm w-full rounded-xl"
+          autoComplete="off"
+        />
+        {searchRaw && (
+          <button
+            onClick={() => { setSearchRaw(''); setSearch(''); setPage(1); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-xl leading-none"
+            title="Clear search (Escape)"
+            aria-label="Clear search"
+          >
+            &#x00D7;
+          </button>
+        )}
+      </div>
+
+      {/* Filter dropdowns — 3 col */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
         <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="form-input text-xs">
           <option value="ALL">All Categories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -347,7 +404,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Sort bar */}
-      <div className="flex items-center gap-4 mb-3 px-3">
+      <div className="flex items-center gap-4 mb-3 px-1">
         <span className="text-xs text-slate-400">Sort:</span>
         <SortBtn field="date" label="Date" />
         <SortBtn field="amount" label="Amount" />
@@ -358,7 +415,7 @@ export default function TransactionsPage() {
         {paginated.length === 0
           ? (
             // Day 5: context-aware empty state
-            search || filterCategory !== 'ALL' || filterMethod !== 'ALL' || filterType !== 'ALL'
+            q || filterCategory !== 'ALL' || filterMethod !== 'ALL' || filterType !== 'ALL'
               ? <EmptyState variant="search" />
               : <EmptyState variant="transactions" />
           )

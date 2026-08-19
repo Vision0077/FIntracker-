@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Search, Upload, ArrowUp, ArrowDown } from 'lucide-react';
-import { useApp, CATEGORIES, PAYMENT_METHODS } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import TransactionRow from './TransactionRow';
 import { EmptyState, SkeletonTransactions } from './Skeletons';
 import { apiUpload, apiUploadPreview } from '../utils/api';
@@ -386,21 +386,101 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Filter dropdowns — 3 col */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="form-input text-xs">
-          <option value="ALL">All Categories</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={filterMethod} onChange={e => { setFilterMethod(e.target.value); setPage(1); }} className="form-input text-xs">
-          <option value="ALL">All Methods</option>
-          {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }} className="form-input text-xs">
-          <option value="ALL">All Types</option>
-          <option value="INCOME">Income</option>
-          <option value="EXPENSE">Expense</option>
-        </select>
+      {/* Day 23: Horizontal scrollable filter chips */}
+      <div
+        className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {/* Type chips */}
+        {[
+          { value: 'INCOME',  label: '💰 Income'  },
+          { value: 'EXPENSE', label: '💸 Expense' },
+        ].map(({ value, label }) => {
+          const active = filterType === value;
+          return (
+            <button
+              key={value}
+              onClick={() => { setFilterType(active ? 'ALL' : value); setPage(1); }}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 ${
+                active
+                  ? 'bg-brand-500 border-brand-500 text-white shadow-sm shadow-brand-500/30'
+                  : 'bg-white dark:bg-[#13132b] border-slate-200 dark:border-[#2d2d52] text-slate-600 dark:text-slate-300 hover:border-brand-400 dark:hover:border-brand-500/50'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+
+        {/* Separator dot */}
+        <span className="flex-shrink-0 w-1 h-1 rounded-full bg-slate-200 dark:bg-[#2d2d52] mx-0.5" />
+
+        {/* Category chips */}
+        {[
+          { value: 'FOOD',         label: '🍜 Food'         },
+          { value: 'TRAVEL',       label: '✈️ Travel'       },
+          { value: 'SUBSCRIPTION', label: '📦 Subs'         },
+          { value: 'SALARY',       label: '💼 Salary'       },
+          { value: 'RENT',         label: '🏠 Rent'         },
+          { value: 'BILLS',        label: '⚡ Bills'        },
+          { value: 'SERVICE',      label: '🔧 Service'      },
+          { value: 'MISCELLANEOUS',label: '🗂 Misc'         },
+        ].map(({ value, label }) => {
+          const active = filterCategory === value;
+          return (
+            <button
+              key={value}
+              onClick={() => { setFilterCategory(active ? 'ALL' : value); setPage(1); }}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 ${
+                active
+                  ? 'bg-brand-500 border-brand-500 text-white shadow-sm shadow-brand-500/30'
+                  : 'bg-white dark:bg-[#13132b] border-slate-200 dark:border-[#2d2d52] text-slate-600 dark:text-slate-300 hover:border-brand-400 dark:hover:border-brand-500/50'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+
+        {/* Separator dot */}
+        <span className="flex-shrink-0 w-1 h-1 rounded-full bg-slate-200 dark:bg-[#2d2d52] mx-0.5" />
+
+        {/* Payment method chips */}
+        {[
+          { value: 'UPI',          label: '📱 UPI'          },
+          { value: 'CARD',         label: '💳 Card'         },
+          { value: 'WALLET',       label: '👛 Wallet'       },
+          { value: 'CASH',         label: '💵 Cash'         },
+          { value: 'SUBSCRIPTION', label: '🔁 Auto-pay'     },
+        ].map(({ value, label }) => {
+          const active = filterMethod === value;
+          return (
+            <button
+              key={value}
+              onClick={() => { setFilterMethod(active ? 'ALL' : value); setPage(1); }}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 ${
+                active
+                  ? 'bg-brand-500 border-brand-500 text-white shadow-sm shadow-brand-500/30'
+                  : 'bg-white dark:bg-[#13132b] border-slate-200 dark:border-[#2d2d52] text-slate-600 dark:text-slate-300 hover:border-brand-400 dark:hover:border-brand-500/50'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+
+        {/* Clear all filters chip — only visible when any filter is active */}
+        {(filterCategory !== 'ALL' || filterMethod !== 'ALL' || filterType !== 'ALL') && (
+          <>
+            <span className="flex-shrink-0 w-1 h-1 rounded-full bg-slate-200 dark:bg-[#2d2d52] mx-0.5" />
+            <button
+              onClick={() => { setFilterCategory('ALL'); setFilterMethod('ALL'); setFilterType('ALL'); setPage(1); }}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border border-rose-300 dark:border-rose-700/60 text-rose-500 bg-rose-50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 transition-all active:scale-95"
+            >
+              ✕ Clear
+            </button>
+          </>
+        )}
       </div>
 
       {/* Sort bar */}
